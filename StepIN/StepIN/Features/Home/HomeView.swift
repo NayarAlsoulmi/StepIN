@@ -18,6 +18,9 @@ struct HomeView: View {
 
     @State private var showInterviewFlow = false
     @State private var heroRobotState: RobotState = .idle
+    // Drives one-shot override (wakeUp on entrance, wave on tap).
+    @State private var heroOneShot: RobertAnimationState? = nil
+    @State private var hasAppeared = false
     @State private var startFeedbackTrigger = false
 
     private var firstName: String { profiles.first?.firstName ?? "there" }
@@ -58,8 +61,14 @@ struct HomeView: View {
             .fullScreenCover(isPresented: $showInterviewFlow) {
                 InterviewFlowView {
                     showInterviewFlow = false
+                    heroRobotState = .idle
                 }
             }
+        }
+        .onAppear {
+            guard !hasAppeared else { return }
+            hasAppeared = true
+            heroOneShot = .wakeUp
         }
     }
 
@@ -67,11 +76,12 @@ struct HomeView: View {
 
     private var heroCard: some View {
         VStack(spacing: StepINSpacing.md) {
-            // The robot is the visual focus of the hero. Its container is
-            // taller than the artwork (glow padding), so pull the extra
-            // vertical space back in without cropping the asset.
-            RobotView(state: heroRobotState, presentation: .homeHero)
-                .padding(.vertical, -StepINSpacing.xxxl)
+            RobotView(
+                state: heroRobotState,
+                robertState: heroOneShot,
+                presentation: .homeHero,
+                onOneShotComplete: { heroOneShot = nil }
+            )
 
             VStack(spacing: StepINSpacing.xs) {
                 Text("Ready for your next interview?")
@@ -106,16 +116,17 @@ struct HomeView: View {
         .padding(.top, StepINSpacing.xs)
     }
 
-    /// Subtle haptic, robot briefly thinks, then the flow opens normally.
+    /// Haptic + wave animation, then open the interview flow.
     private func startInterview() {
-        guard heroRobotState == .idle else { return }
+        // Block re-entry while a one-shot is in progress.
+        guard heroOneShot == nil || heroOneShot == .wakeUp else { return }
         startFeedbackTrigger.toggle()
         heroRobotState = .thinking
+        heroOneShot = .wave
+        // Wave is 12 frames @ 15fps = 0.8 s. Open the flow once it finishes.
         Task {
-            try? await Task.sleep(for: .milliseconds(450))
+            try? await Task.sleep(for: .milliseconds(900))
             showInterviewFlow = true
-            try? await Task.sleep(for: .milliseconds(600))
-            heroRobotState = .idle
         }
     }
 
@@ -177,7 +188,7 @@ struct HomeView: View {
     }
 }
 
-/// Compact goal row for the Home dashboard: completion circle, title, source.
+/// Compact goal row for the Home dashboard.
 private struct HomeGoalRow: View {
     let goal: AssignedGoal
 
@@ -192,7 +203,7 @@ private struct HomeGoalRow: View {
                     .font(StepINFont.body2)
                     .foregroundColor(StepINColor.textPrimary)
                     .lineLimit(2)
-                Text(goal.sourceLabel)
+                Text(goal.homeSourceLabel)
                     .font(StepINFont.caption)
                     .foregroundColor(StepINColor.textTertiary)
             }
@@ -200,6 +211,13 @@ private struct HomeGoalRow: View {
             Spacer(minLength: 0)
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+private extension AssignedGoal {
+    /// "From UX Design Interview" format used on the Home dashboard.
+    var homeSourceLabel: String {
+        "From \(sourceJobTitle) Interview"
     }
 }
 

@@ -1,0 +1,74 @@
+{
+  "canvas": {
+    "width": 512,
+    "height": 341
+  },
+  "sequences": [
+    {
+      "name": "idle",
+      "frameCount": 12,
+      "fps": 12,
+      "loop": true
+    },
+    {
+      "name": "listening",
+      "frameCount": 10,
+      "fps": 12,
+      "loop": true
+    },
+    {
+      "name": "speaking",
+      "frameCount": 12,
+      "fps": 15,
+      "loop": true
+    },
+    {
+      "name": "thinking",
+      "frameCount": 12,
+      "fps": 12,
+      "loop": true
+    },
+    {
+      "name": "analyzing",
+      "frameCount": 12,
+      "fps": 12,
+      "loop": true
+    },
+    {
+      "name": "paused",
+      "frameCount": 1,
+      "fps": 1,
+      "loop": false
+    },
+    {
+      "name": "wave",
+      "frameCount": 12,
+      "fps": 15,
+      "loop": false
+    },
+    {
+      "name": "success",
+      "frameCount": 10,
+      "fps": 15,
+      "loop": false
+    },
+    {
+      "name": "thumbsUp",
+      "frameCount": 10,
+      "fps": 15,
+      "loop": false
+    },
+    {
+      "name": "wakeUp",
+      "frameCount": 12,
+      "fps": 15,
+      "loop": false
+    },
+    {
+      "name": "confused",
+      "frameCount": 10,
+      "fps": 12,
+      "loop": false
+    }
+  ]
+}
