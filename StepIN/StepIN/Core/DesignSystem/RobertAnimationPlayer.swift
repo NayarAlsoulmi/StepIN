@@ -9,6 +9,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 // MARK: - RobertAnimationState
 
@@ -28,17 +29,17 @@ enum RobertAnimationState: String, CaseIterable {
 
     var accessibilityLabel: String {
         switch self {
-        case .idle:      "Robert idle"
-        case .listening: "Robert listening"
-        case .speaking:  "Robert speaking"
-        case .thinking:  "Robert thinking"
-        case .analyzing: "Robert analyzing"
-        case .paused:    "Robert paused"
-        case .wave:      "Robert waving"
-        case .success:   "Robert celebrating success"
-        case .thumbsUp:  "Robert giving thumbs up"
-        case .wakeUp:    "Robert waking up"
-        case .confused:  "Robert confused"
+        case .idle:      "Robert is ready"
+        case .listening: "Robert is listening"
+        case .speaking:  "Robert is speaking"
+        case .thinking:  "Robert is thinking"
+        case .analyzing: "Robert is analyzing the interview"
+        case .paused:    "Robert is paused"
+        case .wave:      "Robert is saying goodbye"
+        case .success:   "Robert is celebrating your completed interview"
+        case .thumbsUp:  "Robert is celebrating your completed interview"
+        case .wakeUp:    "Robert is ready"
+        case .confused:  "Robert is paused"
         }
     }
 }
@@ -64,7 +65,14 @@ final class RobertFrameCache {
     private var animations: [String: RobertSpriteAnimation] = [:]
     private var frameStore: [String: [UIImage]] = [:]
 
-    private init() { loadManifest() }
+    private init() {
+        loadManifest()
+        Task { @MainActor [weak self] in
+            for await _ in NotificationCenter.default.notifications(named: UIApplication.didReceiveMemoryWarningNotification) {
+                self?.frameStore.removeAll()
+            }
+        }
+    }
 
     func animation(for state: RobertAnimationState) -> RobertSpriteAnimation? {
         animations[state.sequenceName]

@@ -20,10 +20,12 @@ struct OnboardingView: View {
     let onFinished: () -> Void
 
     @State private var selection = 0
+    // Page 0 plays wakeUp once then settles to idle.
+    @State private var page0OneShot: RobertAnimationState? = .wakeUp
 
     private let pages: [OnboardingPage] = [
         OnboardingPage(
-            robotState: .speaking,
+            robotState: .idle,
             title: "Practice interviews with AI",
             message: "Speak with a realistic AI interviewer that adapts to your answers, just like the real thing."
         ),
@@ -33,7 +35,7 @@ struct OnboardingView: View {
             message: "Tell us the role you're aiming for — questions are tailored to the job, the company, and your CV."
         ),
         OnboardingPage(
-            robotState: .analyzing,
+            robotState: .idle,
             title: "Get instant feedback",
             message: "Receive a score, personalized coaching, and improvement goals after every interview."
         )
@@ -41,13 +43,32 @@ struct OnboardingView: View {
 
     private var isLastPage: Bool { selection == pages.count - 1 }
 
+    @ViewBuilder
+    private func onboardingRobot(index: Int, page: OnboardingPage) -> some View {
+        switch index {
+        case 0:
+            // wakeUp once, then settle to idle.
+            RobotView(
+                state: page.robotState,
+                robertState: page0OneShot,
+                presentation: .homeHero,
+                onOneShotComplete: { page0OneShot = nil }
+            )
+        case 2:
+            // thumbsUp once, hold on last frame.
+            RobotView(state: page.robotState, robertState: .thumbsUp, presentation: .homeHero)
+        default:
+            RobotView(state: page.robotState, presentation: .homeHero)
+        }
+    }
+
     var body: some View {
         VStack {
             TabView(selection: $selection) {
                 ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
                     VStack(spacing: StepINSpacing.xl) {
                         Spacer()
-                        RobotView(state: page.robotState, presentation: .homeHero)
+                        onboardingRobot(index: index, page: page)
                         VStack(spacing: StepINSpacing.sm) {
                             Text(page.title)
                                 .font(StepINFont.h1)

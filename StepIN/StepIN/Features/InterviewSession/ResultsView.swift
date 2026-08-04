@@ -18,10 +18,19 @@ struct ResultsView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var ringProgress: CGFloat = 0
+    @State private var resultRobertBaseState: RobotState = .idle
+    @State private var resultRobertOneShot: RobertAnimationState? = nil
 
     var body: some View {
         ScrollView {
             VStack(spacing: StepINSpacing.xl) {
+                RobotView(
+                    state: resultRobertBaseState,
+                    robertState: resultRobertOneShot,
+                    presentation: .interview
+                )
+                .padding(.top, StepINSpacing.md)
+
                 overallScore
 
                 if let analysis = interview.analysis {
@@ -78,6 +87,7 @@ struct ResultsView: View {
             .padding(.bottom, StepINSpacing.xxl)
         }
         .background(StepINColor.background)
+        .task { await runGoodbyeSequence() }
     }
 
     private var overallScore: some View {
@@ -121,6 +131,40 @@ struct ResultsView: View {
             }
         }
         .padding(.top, StepINSpacing.lg)
+    }
+
+    // MARK: Goodbye sequence
+
+    private func runGoodbyeSequence() async {
+        let score = interview.overallScore ?? 0
+        let cache = RobertFrameCache.shared
+
+        // Determine performance reaction (one-shot).
+        let reaction: RobertAnimationState?
+        if score >= 90 { reaction = .success }      // 10 frames @ 15 fps ≈ 0.67 s
+        else if score >= 60 { reaction = .thumbsUp } // supportive regardless of band
+        else { reaction = nil }                       // calm idle for low scores
+
+        if let reaction {
+            resultRobertOneShot = reaction
+            let anim = cache.animation(for: reaction)
+            let dur = anim.map { Double($0.frameCount) / Double($0.fps) } ?? 0.7
+            try? await Task.sleep(for: .seconds(dur))
+            guard !Task.isCancelled else { return }
+            resultRobertOneShot = nil
+        }
+
+        // Brief pause before goodbye wave.
+        try? await Task.sleep(for: .seconds(0.5))
+        guard !Task.isCancelled else { return }
+
+        // Wave goodbye, then settle to idle.
+        resultRobertOneShot = .wave
+        let waveAnim = cache.animation(for: .wave)
+        let waveDur = waveAnim.map { Double($0.frameCount) / Double($0.fps) } ?? 0.8
+        try? await Task.sleep(for: .seconds(waveDur + 0.15))
+        guard !Task.isCancelled else { return }
+        resultRobertOneShot = nil
     }
 }
 

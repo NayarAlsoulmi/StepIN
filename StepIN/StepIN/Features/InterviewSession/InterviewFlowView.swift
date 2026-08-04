@@ -88,7 +88,7 @@ struct InterviewFlowView: View {
                 }
 
             case .analysisFailed(let interview):
-                analysisFailedView(interview: interview)
+                AnalysisFailedView(onDismiss: onDismiss)
             }
         }
     }
@@ -192,12 +192,23 @@ struct InterviewFlowView: View {
         withAnimation(StepINMotion.fade) { stage = .results(interview, goals) }
     }
 
-    // MARK: Analysis failure (recoverable)
+}
 
-    private func analysisFailedView(interview: InterviewRecord) -> some View {
+// MARK: - Analysis failure view
+
+private struct AnalysisFailedView: View {
+    let onDismiss: () -> Void
+    @State private var oneShot: RobertAnimationState? = .confused
+
+    var body: some View {
         VStack(spacing: StepINSpacing.xl) {
             Spacer()
-            RobotView(state: .idle, presentation: .emptyState)
+            RobotView(
+                state: .idle,
+                robertState: oneShot,
+                presentation: .emptyState,
+                onOneShotComplete: { oneShot = nil }
+            )
             Text("We couldn't finish your analysis")
                 .font(StepINFont.h3)
                 .foregroundColor(StepINColor.textPrimary)

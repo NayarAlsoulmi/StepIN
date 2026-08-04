@@ -22,6 +22,7 @@ struct HomeView: View {
     @State private var heroOneShot: RobertAnimationState? = nil
     @State private var hasAppeared = false
     @State private var startFeedbackTrigger = false
+    @State private var robertTapTrigger = false
 
     private var firstName: String { profiles.first?.firstName ?? "there" }
 
@@ -58,6 +59,7 @@ struct HomeView: View {
                 }
             }
             .sensoryFeedback(.impact(weight: .light), trigger: startFeedbackTrigger)
+            .sensoryFeedback(.impact(weight: .light), trigger: robertTapTrigger)
             .fullScreenCover(isPresented: $showInterviewFlow) {
                 InterviewFlowView {
                     showInterviewFlow = false
@@ -80,8 +82,21 @@ struct HomeView: View {
                 state: heroRobotState,
                 robertState: heroOneShot,
                 presentation: .homeHero,
-                onOneShotComplete: { heroOneShot = nil }
+                onOneShotComplete: {
+                    // Entrance sequence: wakeUp → wave → idle.
+                    // Any other one-shot (tap wave, interview wave) just clears.
+                    if heroOneShot == .wakeUp {
+                        heroOneShot = .wave
+                    } else {
+                        heroOneShot = nil
+                    }
+                }
             )
+            .onTapGesture {
+                guard heroOneShot == nil else { return }
+                robertTapTrigger.toggle()
+                heroOneShot = .wave
+            }
 
             VStack(spacing: StepINSpacing.xs) {
                 Text("Ready for your next interview?")
@@ -118,8 +133,7 @@ struct HomeView: View {
 
     /// Haptic + wave animation, then open the interview flow.
     private func startInterview() {
-        // Block re-entry while a one-shot is in progress.
-        guard heroOneShot == nil || heroOneShot == .wakeUp else { return }
+        guard heroOneShot == nil else { return }
         startFeedbackTrigger.toggle()
         heroRobotState = .thinking
         heroOneShot = .wave
