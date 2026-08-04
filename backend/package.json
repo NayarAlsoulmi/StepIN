@@ -1,0 +1,23 @@
+{
+  "name": "stepin-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "StepIN lightweight secure backend: temporary realtime AI sessions and interview analysis. No permanent user data.",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.0",
+    "dotenv": "^16.4.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.0",
+    "tsx": "^4.15.0",
+    "typescript": "^5.5.0"
+  }
+}

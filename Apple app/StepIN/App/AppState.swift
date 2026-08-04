@@ -1,0 +1,59 @@
+//
+//  AppState.swift
+//  StepIN
+//
+//  High-level app state. Holds only cross-cutting concerns — no
+//  feature-specific logic lives here.
+//
+
+import SwiftUI
+
+/// The primary tabs of the application.
+enum StepINTab: Hashable, CaseIterable {
+    case home
+    case interviews
+    case goals
+    case profile
+
+    var title: String {
+        switch self {
+        case .home: "Home"
+        case .interviews: "Interviews"
+        case .goals: "Goals"
+        case .profile: "Profile"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .home: "house.fill"
+        case .interviews: "bubble.left.and.bubble.right.fill"
+        case .goals: "checkmark.circle.fill"
+        case .profile: "person.crop.circle.fill"
+        }
+    }
+}
+
+@Observable
+final class AppState {
+    /// Whether first-run onboarding has been completed.
+    var hasCompletedOnboarding: Bool
+    /// Whether a local profile exists.
+    var hasProfile: Bool
+    /// Currently selected tab.
+    var selectedTab: StepINTab = .home
+    /// Global connectivity flag (updated by the network monitor in a later phase).
+    var isConnected: Bool = true
+
+    private let onboardingKey = "stepin.hasCompletedOnboarding"
+
+    init(hasProfile: Bool = false) {
+        self.hasCompletedOnboarding = UserDefaults.standard.bool(forKey: onboardingKey)
+        self.hasProfile = hasProfile
+    }
+
+    func completeOnboarding() {
+        hasCompletedOnboarding = true
+        UserDefaults.standard.set(true, forKey: onboardingKey)
+    }
+}

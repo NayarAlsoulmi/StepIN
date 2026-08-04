@@ -1,0 +1,211 @@
+//
+//  HomeView.swift
+//  StepIN
+//
+//  Central dashboard: greeting, hero card, recent interviews, recent goals.
+//
+
+import SwiftUI
+import SwiftData
+
+struct HomeView: View {
+    @Environment(AppState.self) private var appState
+    @Query private var profiles: [UserProfile]
+    @Query(sort: \InterviewRecord.startedAt, order: .reverse)
+    private var interviews: [InterviewRecord]
+    @Query(sort: \AssignedGoal.createdAt, order: .reverse)
+    private var allGoals: [AssignedGoal]
+
+    @State private var showInterviewFlow = false
+    @State private var heroRobotState: RobotState = .idle
+    @State private var startFeedbackTrigger = false
+
+    private var firstName: String { profiles.first?.firstName ?? "there" }
+
+    private var completedInterviews: [InterviewRecord] {
+        interviews.filter { $0.status == .completed }
+    }
+    private var recentInterviews: [InterviewRecord] {
+        Array(completedInterviews.prefix(2))
+    }
+
+    private var activeGoals: [AssignedGoal] {
+        allGoals.filter { $0.status == .toDo }
+    }
+    private var recentGoals: [AssignedGoal] {
+        Array(activeGoals.prefix(3))
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: StepINSpacing.section) {
+                    heroCard
+                    recentInterviewsSection
+                    recentGoalsSection
+                }
+                .padding(.horizontal, StepINSpacing.screenH)
+                .padding(.bottom, StepINSpacing.xxl)
+            }
+            .background(StepINColor.background)
+            .navigationTitle("Welcome back, \(firstName)")
+            .navigationDestination(for: UUID.self) { id in
+                if let interview = interviews.first(where: { $0.id == id }) {
+                    InterviewDetailsView(interview: interview)
+                }
+            }
+            .sensoryFeedback(.impact(weight: .light), trigger: startFeedbackTrigger)
+            .fullScreenCover(isPresented: $showInterviewFlow) {
+                InterviewFlowView {
+                    showInterviewFlow = false
+                }
+            }
+        }
+    }
+
+    // MARK: Hero
+
+    private var heroCard: some View {
+        VStack(spacing: StepINSpacing.lg) {
+            RobotView(state: heroRobotState, size: 110)
+                .padding(.top, -StepINSpacing.sm)
+
+            VStack(spacing: StepINSpacing.xs) {
+                Text("Ready for your next interview?")
+                    .font(StepINFont.h2)
+                    .foregroundColor(StepINColor.onPrimary)
+                    .multilineTextAlignment(.center)
+                Text("Practice with an AI interviewer tailored to your role.")
+                    .font(StepINFont.bodyRegular)
+                    .foregroundColor(StepINColor.onPrimary.opacity(0.9))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button(action: startInterview) {
+                Text("Start Interview")
+                    .font(StepINFont.button)
+                    .foregroundColor(StepINColor.primary)
+                    .padding(.vertical, 14)
+                    .frame(maxWidth: .infinity)
+                    .background(StepINColor.onPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: StepINRadius.medium, style: .continuous))
+            }
+            .buttonStyle(StepINPressStyle())
+            .accessibilityLabel("Start Interview")
+        }
+        .padding(StepINSpacing.xl)
+        .frame(maxWidth: .infinity)
+        .background(StepINGradient.hero)
+        .clipShape(RoundedRectangle(cornerRadius: StepINRadius.hero, style: .continuous))
+        .stepINShadow(.card)
+    }
+
+    /// Subtle haptic, robot briefly thinks, then the flow opens normally.
+    private func startInterview() {
+        guard heroRobotState == .idle else { return }
+        startFeedbackTrigger.toggle()
+        heroRobotState = .thinking
+        Task {
+            try? await Task.sleep(for: .milliseconds(450))
+            showInterviewFlow = true
+            try? await Task.sleep(for: .milliseconds(600))
+            heroRobotState = .idle
+        }
+    }
+
+    // MARK: Recent interviews
+
+    @ViewBuilder
+    private var recentInterviewsSection: some View {
+        VStack(alignment: .leading, spacing: StepINSpacing.md) {
+            StepINSectionHeader(
+                title: "Recent Interviews",
+                actionTitle: completedInterviews.count > 2 ? "See All" : nil,
+                action: completedInterviews.count > 2 ? { appState.selectedTab = .interviews } : nil
+            )
+            if recentInterviews.isEmpty {
+                StepINCard {
+                    StepINEmptyState(
+                        title: "No interviews yet",
+                        message: "Start your first interview and receive personalized feedback.",
+                        actionTitle: "Start Interview",
+                        action: startInterview
+                    )
+                }
+            } else {
+                ForEach(recentInterviews) { interview in
+                    NavigationLink(value: interview.id) {
+                        InterviewHistoryCard(interview: interview)
+                    }
+                    .buttonStyle(StepINPressStyle())
+                }
+            }
+        }
+    }
+
+    // MARK: Recent goals
+
+    @ViewBuilder
+    private var recentGoalsSection: some View {
+        if !recentGoals.isEmpty {
+            VStack(alignment: .leading, spacing: StepINSpacing.md) {
+                StepINSectionHeader(
+                    title: "Recent Goals",
+                    actionTitle: activeGoals.count > 3 ? "See All" : nil,
+                    action: activeGoals.count > 3 ? { appState.selectedTab = .goals } : nil
+                )
+                StepINCard {
+                    VStack(spacing: 0) {
+                        ForEach(Array(recentGoals.enumerated()), id: \.element.id) { index, goal in
+                            HomeGoalRow(goal: goal)
+                            if index < recentGoals.count - 1 {
+                                Divider()
+                                    .background(StepINColor.divider)
+                                    .padding(.vertical, StepINSpacing.sm)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Compact goal row for the Home dashboard: completion circle, title, source.
+private struct HomeGoalRow: View {
+    let goal: AssignedGoal
+
+    var body: some View {
+        HStack(spacing: StepINSpacing.sm) {
+            Image(systemName: goal.status == .completed ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 22))
+                .foregroundColor(goal.status == .completed ? StepINColor.success : StepINColor.textTertiary)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(goal.title)
+                    .font(StepINFont.body2)
+                    .foregroundColor(StepINColor.textPrimary)
+                    .lineLimit(2)
+                Text(goal.sourceJobTitle)
+                    .font(StepINFont.caption)
+                    .foregroundColor(StepINColor.textTertiary)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+#Preview("With data") {
+    HomeView()
+        .environment(AppState(hasProfile: true))
+        .modelContainer(PreviewData.container)
+}
+
+#Preview("Empty") {
+    HomeView()
+        .environment(AppState(hasProfile: true))
+        .modelContainer(PreviewData.emptyContainer)
+}

@@ -1,21 +1,19 @@
 //
 //  ContentView.swift
-//  Apple app
+//  StepIN
 //
-//  Created by Nayar Alsoulmi on 18/02/1448 AH.
+//  The app entry point is RootTabView (see Apple_appApp). This preview
+//  entry is kept only as a convenience shim.
 //
 
 import SwiftUI
+import SwiftData
 
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
+        RootTabView()
+            .environment(AppState(hasProfile: true))
+            .modelContainer(PreviewData.container)
     }
 }
 
