@@ -2,7 +2,7 @@
 //  ContentView.swift
 //  StepIN
 //
-//  The app entry point is RootTabView (see Apple_appApp). This preview
+//  The app entry point is RootTabView (see StepINApp). This preview
 //  entry is kept only as a convenience shim.
 //
 

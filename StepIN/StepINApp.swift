@@ -1,5 +1,5 @@
 //
-//  Apple_appApp.swift
+//  StepINApp.swift
 //  StepIN
 //
 //  App entry point. Sets up the SwiftData container and shared app state.
@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 @main
-struct Apple_appApp: App {
+struct StepINApp: App {
     @State private var appState: AppState
     private let modelContainer: ModelContainer
 
