@@ -19,7 +19,7 @@ struct SplashView: View {
             StepINGradient.hero.ignoresSafeArea()
 
             VStack(spacing: StepINSpacing.xl) {
-                RobotView(state: .idle, size: 150)
+                RobotView(state: .idle, presentation: .homeHero)
 
                 VStack(spacing: StepINSpacing.xs) {
                     Text("StepIN")

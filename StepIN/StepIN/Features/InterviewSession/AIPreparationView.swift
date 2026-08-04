@@ -32,7 +32,7 @@ struct AIPreparationView: View {
 
             VStack(spacing: StepINSpacing.xxl) {
                 Spacer()
-                RobotView(state: .thinking, size: 140)
+                RobotView(state: .thinking, presentation: .loading)
 
                 VStack(alignment: .leading, spacing: StepINSpacing.md) {
                     ForEach(Array(items.enumerated()), id: \.offset) { index, item in

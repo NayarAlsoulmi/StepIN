@@ -18,7 +18,6 @@ struct CreateProfileView: View {
     @State private var firstName = ""
     @State private var lastName = ""
     @State private var email = ""
-    @State private var importedCV: ImportedCV?
 
     private var canContinue: Bool {
         !firstName.trimmingCharacters(in: .whitespaces).isEmpty
@@ -29,7 +28,7 @@ struct CreateProfileView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: StepINSpacing.xl) {
                     VStack(spacing: StepINSpacing.sm) {
-                        RobotView(state: .idle, size: 90)
+                        RobotView(state: .idle, presentation: .compact)
                         Text("Let's get to know you")
                             .font(StepINFont.h2)
                             .foregroundColor(StepINColor.textPrimary)
@@ -51,21 +50,6 @@ struct CreateProfileView: View {
                             .textInputAutocapitalization(.never)
                     }
 
-                    VStack(alignment: .leading, spacing: StepINSpacing.xs) {
-                        Text("CV")
-                            .font(StepINFont.body3)
-                            .foregroundColor(StepINColor.textSecondary)
-                        CVUploadCard(
-                            fileName: importedCV?.fileName,
-                            onImport: { importedCV = $0 },
-                            onRemove: { removeCV() }
-                        )
-                        Text("Your CV is used to personalize the interview. The file stays on your device; relevant text may be sent securely during an interview.")
-                            .font(StepINFont.caption)
-                            .foregroundColor(StepINColor.textTertiary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
                     StepINPrimaryButton(title: "Continue", isEnabled: canContinue) {
                         createProfile()
                     }
@@ -78,13 +62,6 @@ struct CreateProfileView: View {
         }
     }
 
-    private func removeCV() {
-        if let cv = importedCV {
-            CVDocumentService().deleteCV(atLocalPath: cv.localPath)
-        }
-        importedCV = nil
-    }
-
     private func createProfile() {
         let trimmedFirst = firstName.trimmingCharacters(in: .whitespaces)
         guard !trimmedFirst.isEmpty else { return }
@@ -95,10 +72,7 @@ struct CreateProfileView: View {
         let profile = UserProfile(
             firstName: trimmedFirst,
             lastName: trimmedLast.isEmpty ? nil : trimmedLast,
-            email: trimmedEmail.isEmpty ? nil : trimmedEmail,
-            profileCVFileName: importedCV?.fileName,
-            profileCVLocalPath: importedCV?.localPath,
-            profileCVExtractedText: importedCV?.extractedText
+            email: trimmedEmail.isEmpty ? nil : trimmedEmail
         )
         context.insert(profile)
         onFinished()

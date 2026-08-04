@@ -116,7 +116,7 @@ struct GoalCard: View {
                         .font(StepINFont.body1)
                         .foregroundColor(StepINColor.textPrimary)
                         .strikethrough(isCompleted, color: StepINColor.textTertiary)
-                    Text(goalSource)
+                    Text(goal.sourceLabel)
                         .font(StepINFont.caption)
                         .foregroundColor(StepINColor.textTertiary)
                 }
@@ -134,13 +134,6 @@ struct GoalCard: View {
         }
     }
 
-    private var goalSource: String {
-        if let company = goal.sourceCompany {
-            "\(goal.sourceJobTitle) · \(company)"
-        } else {
-            goal.sourceJobTitle
-        }
-    }
 }
 
 #Preview {

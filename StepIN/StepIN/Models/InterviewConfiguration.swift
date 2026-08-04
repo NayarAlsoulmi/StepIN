@@ -13,9 +13,10 @@ struct InterviewConfiguration: Sendable {
     var company: String?
     var companyWebsite: String?
     var jobDescription: String?
-    /// CV uploaded specifically for this interview (overrides Profile CV).
+    /// CV uploaded specifically for this interview, if any. There is no
+    /// Profile CV fallback — no CV simply means the interview runs without one.
     var interviewCV: ImportedCV?
-    /// Text resolved via CV priority: Interview CV → Profile CV → none.
+    /// Text extracted from the interview CV, if one was provided.
     var resolvedCVText: String?
     var questionCount: QuestionCount
     var candidateFirstName: String

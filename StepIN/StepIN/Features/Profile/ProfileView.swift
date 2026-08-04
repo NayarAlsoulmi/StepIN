@@ -2,7 +2,8 @@
 //  ProfileView.swift
 //  StepIN
 //
-//  Local profile overview with Edit Profile and CV replace / delete.
+//  Local profile overview with Edit Profile. CVs are attached per interview
+//  in Interview Setup — the profile no longer stores or shows a CV.
 //
 
 import SwiftUI
@@ -12,7 +13,6 @@ struct ProfileView: View {
     @Query private var profiles: [UserProfile]
 
     @State private var showEditProfile = false
-    @State private var confirmDeleteCV = false
 
     private var profile: UserProfile? { profiles.first }
 
@@ -22,7 +22,6 @@ struct ProfileView: View {
                 VStack(spacing: StepINSpacing.section) {
                     header
                     detailsCard
-                    cvSection
                 }
                 .padding(StepINSpacing.screenH)
                 .padding(.bottom, StepINSpacing.xxl)
@@ -41,16 +40,6 @@ struct ProfileView: View {
                 if let profile {
                     EditProfileView(profile: profile)
                 }
-            }
-            .confirmationDialog(
-                "Delete your CV?",
-                isPresented: $confirmDeleteCV,
-                titleVisibility: .visible
-            ) {
-                Button("Delete CV", role: .destructive) { deleteCV() }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This won't affect CVs used by past interviews.")
             }
         }
     }
@@ -90,20 +79,6 @@ struct ProfileView: View {
         }
     }
 
-    @ViewBuilder
-    private var cvSection: some View {
-        VStack(alignment: .leading, spacing: StepINSpacing.sm) {
-            StepINSectionHeader(title: "CV")
-            if let profile {
-                CVUploadCard(
-                    fileName: profile.profileCVFileName,
-                    onImport: { imported in replaceCV(with: imported) },
-                    onRemove: profile.hasCV ? { confirmDeleteCV = true } : nil
-                )
-            }
-        }
-    }
-
     private func detailRow(_ label: String, _ value: String) -> some View {
         HStack {
             Text(label)
@@ -114,31 +89,6 @@ struct ProfileView: View {
                 .font(StepINFont.body2)
                 .foregroundColor(StepINColor.textPrimary)
         }
-    }
-
-    // MARK: CV actions
-
-    private func replaceCV(with imported: ImportedCV) {
-        guard let profile else { return }
-        if let oldPath = profile.profileCVLocalPath {
-            CVDocumentService().deleteCV(atLocalPath: oldPath)
-        }
-        profile.profileCVFileName = imported.fileName
-        profile.profileCVLocalPath = imported.localPath
-        profile.profileCVExtractedText = imported.extractedText
-        profile.updatedAt = .now
-    }
-
-    /// Deleting the Profile CV never deletes CV copies owned by past interviews.
-    private func deleteCV() {
-        guard let profile else { return }
-        if let oldPath = profile.profileCVLocalPath {
-            CVDocumentService().deleteCV(atLocalPath: oldPath)
-        }
-        profile.profileCVFileName = nil
-        profile.profileCVLocalPath = nil
-        profile.profileCVExtractedText = nil
-        profile.updatedAt = .now
     }
 
     private var fullName: String {

@@ -158,9 +158,15 @@ struct InterviewDetailsView: View {
                 message: "This interview has no recorded conversation."
             )
         } else {
-            VStack(spacing: StepINSpacing.sm) {
-                ForEach(messages) { message in
-                    TranscriptRow(message: message)
+            VStack(spacing: StepINSpacing.md) {
+                ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
+                    // Robot thumbnail only at the start of an interviewer
+                    // turn, so the transcript never feels crowded.
+                    TranscriptRow(
+                        message: message,
+                        showsRobotThumbnail: message.speaker == .interviewer
+                            && (index == 0 || messages[index - 1].speaker != .interviewer)
+                    )
                 }
             }
         }
@@ -221,16 +227,34 @@ struct FeedbackListSection: View {
     }
 }
 
-/// iMessage-inspired transcript bubble: interviewer on the left in a soft
-/// neutral bubble, the candidate on the right in brand purple.
+/// Transcript bubble: interviewer on the left in a soft neutral bubble, the
+/// candidate on the right in brand purple. This is an interview transcript,
+/// not a chat app — no timestamps, no metadata.
 struct TranscriptRow: View {
     let message: InterviewMessage
+    /// Small official StepINRobot thumbnail beside the bubble; shown only
+    /// on the first message of an interviewer turn.
+    var showsRobotThumbnail: Bool = false
 
     private var isInterviewer: Bool { message.speaker == .interviewer }
+    private let thumbnailSize: CGFloat = 24
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(alignment: .bottom, spacing: StepINSpacing.xs) {
             if !isInterviewer { Spacer(minLength: StepINSpacing.huge) }
+
+            if isInterviewer {
+                if showsRobotThumbnail {
+                    Image("StepINRobot")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: thumbnailSize, height: thumbnailSize)
+                        .accessibilityHidden(true)
+                } else {
+                    // Keep bubbles of the same turn left-aligned.
+                    Color.clear.frame(width: thumbnailSize, height: 1)
+                }
+            }
 
             Text(message.text)
                 .font(.system(size: 15))

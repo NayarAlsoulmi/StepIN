@@ -267,6 +267,17 @@ final class AssignedGoal {
         self.completedAt = completedAt
         self.statusRaw = status.rawValue
     }
+
+    /// User-facing source line, e.g. "From UX Design Interview". Used
+    /// everywhere a goal shows where it came from — keep the format
+    /// consistent across Home and My Goals.
+    var sourceLabel: String {
+        if sourceJobTitle.localizedCaseInsensitiveContains("interview") {
+            "From \(sourceJobTitle)"
+        } else {
+            "From \(sourceJobTitle) Interview"
+        }
+    }
 }
 
 // MARK: - ActiveInterviewDraft

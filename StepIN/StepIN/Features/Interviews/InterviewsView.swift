@@ -15,9 +15,20 @@ struct InterviewsView: View {
     private var interviews: [InterviewRecord]
 
     @State private var interviewPendingDeletion: InterviewRecord?
+    @State private var searchText = ""
 
     private var completed: [InterviewRecord] {
         interviews.filter { $0.status == .completed }
+    }
+
+    /// Search matches Job Title and Company only.
+    private var filtered: [InterviewRecord] {
+        let query = searchText.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty else { return completed }
+        return completed.filter { interview in
+            interview.jobTitle.localizedCaseInsensitiveContains(query)
+                || (interview.company?.localizedCaseInsensitiveContains(query) ?? false)
+        }
     }
 
     var body: some View {
@@ -32,7 +43,7 @@ struct InterviewsView: View {
                     .frame(maxHeight: .infinity)
                 } else {
                     List {
-                        ForEach(completed) { interview in
+                        ForEach(filtered) { interview in
                             NavigationLink(value: interview.id) {
                                 InterviewHistoryCard(interview: interview)
                             }
@@ -56,6 +67,14 @@ struct InterviewsView: View {
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
+                    // Pull-down search: hidden until the user pulls the list,
+                    // keeping the default screen clean.
+                    .searchable(text: $searchText, prompt: "Job title or company")
+                    .overlay {
+                        if filtered.isEmpty {
+                            ContentUnavailableView.search(text: searchText)
+                        }
+                    }
                 }
             }
             .background(StepINColor.background)
@@ -140,10 +159,14 @@ struct InterviewHistoryCard: View {
     }
 }
 
-/// Compact circular score indicator.
+/// Compact circular score indicator. The ring fills from zero once, the
+/// first time the badge appears.
 struct ScoreBadge: View {
     let score: Int
     var size: CGFloat = 54
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var ringProgress: CGFloat = 0
 
     private var lineWidth: CGFloat { size / 11 }
 
@@ -152,7 +175,7 @@ struct ScoreBadge: View {
             Circle()
                 .stroke(StepINColor.primarySoft, lineWidth: lineWidth)
             Circle()
-                .trim(from: 0, to: CGFloat(score) / 100)
+                .trim(from: 0, to: ringProgress)
                 .stroke(StepINColor.primary, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
             Text("\(score)")
@@ -160,6 +183,17 @@ struct ScoreBadge: View {
                 .foregroundColor(StepINColor.textPrimary)
         }
         .frame(width: size, height: size)
+        .onAppear {
+            // Animate only on first appearance; re-appearing rows keep
+            // their filled ring.
+            guard ringProgress == 0 else { return }
+            let target = CGFloat(score) / 100
+            if reduceMotion {
+                ringProgress = target
+            } else {
+                withAnimation(.easeOut(duration: 0.7)) { ringProgress = target }
+            }
+        }
         .accessibilityLabel("Overall score \(score) out of 100")
     }
 }

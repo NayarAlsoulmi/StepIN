@@ -3,7 +3,8 @@
 //  StepIN
 //
 //  Interview Preparation. Only Job Title is required — never block the
-//  interview on anything else. CV priority: Interview CV → Profile CV → none.
+//  interview on anything else. CV rule: Interview CV if provided, otherwise
+//  the interview continues without a CV (no Profile fallback).
 //
 
 import SwiftUI
@@ -96,7 +97,7 @@ struct InterviewSetupView: View {
                         }
                     }
 
-                    // Interview-specific CV (does not replace the Profile CV).
+                    // CV for this interview only — optional, no Profile fallback.
                     VStack(alignment: .leading, spacing: StepINSpacing.xs) {
                         Text("CV for this interview")
                             .font(StepINFont.body3)
@@ -116,11 +117,6 @@ struct InterviewSetupView: View {
                                 interviewCV = nil
                             }
                         )
-                        if interviewCV == nil, profile?.hasCV == true {
-                            Text("Your profile CV will be used unless you upload one here.")
-                                .font(StepINFont.caption)
-                                .foregroundColor(StepINColor.textTertiary)
-                        }
                     }
 
                     // Question count.
@@ -171,8 +167,8 @@ struct InterviewSetupView: View {
             return trimmed.isEmpty ? nil : trimmed
         }
 
-        // CV priority: Interview CV → Profile CV → none. Never block.
-        let resolvedCVText = interviewCV?.extractedText ?? profile?.profileCVExtractedText
+        // CV rule: Interview CV if provided, otherwise none. Never block.
+        let resolvedCVText = interviewCV?.extractedText
 
         let config = InterviewConfiguration(
             jobTitle: trimmedTitle,

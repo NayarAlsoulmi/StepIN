@@ -34,13 +34,43 @@ enum RobotState: String, CaseIterable {
     }
 }
 
+/// Where the robot is presented. Presentation controls sizing only;
+/// behavior always comes from RobotState. A future RealityKit renderer can
+/// honor the same (state, presentation, audioLevel) API.
+enum RobotPresentation {
+    case homeHero
+    case interview
+    case loading
+    case compact
+    case emptyState
+
+    var size: CGFloat {
+        switch self {
+        case .homeHero: 190
+        case .interview: 140
+        case .loading: 140
+        case .compact: 100
+        case .emptyState: 120
+        }
+    }
+}
+
 struct RobotView: View {
     let state: RobotState
-    var size: CGFloat = 140
+    var presentation: RobotPresentation = .compact
+    /// Live voice level in 0...1 (candidate mic while listening, AI voice
+    /// while speaking). Drives the pulse around the robot; 0 falls back to
+    /// the built-in ambient pulse.
+    var audioLevel: Double = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var animate = false
     @State private var successLift = false
+
+    private var size: CGFloat { presentation.size }
+
+    /// Clamped audio input used to modulate glow and scale.
+    private var level: CGFloat { CGFloat(min(max(audioLevel, 0), 1)) }
 
     var body: some View {
         ZStack {
@@ -72,18 +102,48 @@ struct RobotView: View {
     // MARK: Glow
 
     private var glow: some View {
-        Circle()
-            .fill(
-                RadialGradient(
-                    colors: [glowColor.opacity(0.38), glowColor.opacity(0)],
-                    center: .center,
-                    startRadius: 4,
-                    endRadius: size * 0.85
+        ZStack {
+            // Listening adds a soft cyan ring under the purple glow so the
+            // pulse reads as "hearing you" without touching the artwork.
+            if state == .listening {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [StepINColor.listeningCyan.opacity(0.22), StepINColor.listeningCyan.opacity(0)],
+                            center: .center,
+                            startRadius: size * 0.3,
+                            endRadius: size * 0.95
+                        )
+                    )
+                    .frame(width: size * 1.7, height: size * 1.7)
+                    .scaleEffect(glowScale * (1 + level * 0.06))
+            }
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [glowColor.opacity(0.38), glowColor.opacity(0)],
+                        center: .center,
+                        startRadius: 4,
+                        endRadius: size * 0.85
+                    )
                 )
-            )
-            .frame(width: size * 1.7, height: size * 1.7)
-            .opacity(glowOpacity)
-            .scaleEffect(reduceMotion || state == .paused ? 1 : (animate ? 1.06 : 0.94))
+                .frame(width: size * 1.7, height: size * 1.7)
+                .opacity(glowOpacity)
+                .scaleEffect(glowScale + audioGlowBoost)
+        }
+    }
+
+    private var glowScale: CGFloat {
+        reduceMotion || state == .paused ? 1 : (animate ? 1.06 : 0.94)
+    }
+
+    /// Audio-reactive expansion of the glow while listening or speaking.
+    private var audioGlowBoost: CGFloat {
+        switch state {
+        case .listening, .speaking: level * 0.08
+        default: 0
+        }
     }
 
     private var glowColor: Color {
@@ -138,10 +198,10 @@ struct RobotView: View {
             return animate ? 1.015 : 0.995
         case .listening:
             // Slight forward focus with a soft pulse.
-            return animate ? 1.035 : 1.015
+            return (animate ? 1.035 : 1.015) + level * 0.015
         case .speaking:
-            // Slight body response to the voice.
-            return animate ? 1.02 : 1.0
+            // Slight body response to the AI voice level.
+            return (animate ? 1.02 : 1.0) + level * 0.02
         default:
             return 1
         }
@@ -211,7 +271,7 @@ struct RobotView: View {
         VStack(spacing: 24) {
             ForEach(RobotState.allCases, id: \.self) { state in
                 VStack(spacing: 4) {
-                    RobotView(state: state, size: 90)
+                    RobotView(state: state, presentation: .compact)
                     Text(state.rawValue)
                         .font(StepINFont.caption)
                         .foregroundColor(StepINColor.textTertiary)

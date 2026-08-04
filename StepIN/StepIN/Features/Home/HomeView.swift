@@ -66,9 +66,12 @@ struct HomeView: View {
     // MARK: Hero
 
     private var heroCard: some View {
-        VStack(spacing: StepINSpacing.lg) {
-            RobotView(state: heroRobotState, size: 110)
-                .padding(.top, -StepINSpacing.sm)
+        VStack(spacing: StepINSpacing.md) {
+            // The robot is the visual focus of the hero. Its container is
+            // taller than the artwork (glow padding), so pull the extra
+            // vertical space back in without cropping the asset.
+            RobotView(state: heroRobotState, presentation: .homeHero)
+                .padding(.vertical, -StepINSpacing.xxxl)
 
             VStack(spacing: StepINSpacing.xs) {
                 Text("Ready for your next interview?")
@@ -86,12 +89,13 @@ struct HomeView: View {
                 Text("Start Interview")
                     .font(StepINFont.button)
                     .foregroundColor(StepINColor.primary)
-                    .padding(.vertical, 14)
                     .frame(maxWidth: .infinity)
+                    .frame(height: 54)
                     .background(StepINColor.onPrimary)
                     .clipShape(RoundedRectangle(cornerRadius: StepINRadius.medium, style: .continuous))
             }
             .buttonStyle(StepINPressStyle())
+            .padding(.top, StepINSpacing.xs)
             .accessibilityLabel("Start Interview")
         }
         .padding(StepINSpacing.xl)
@@ -99,6 +103,7 @@ struct HomeView: View {
         .background(StepINGradient.hero)
         .clipShape(RoundedRectangle(cornerRadius: StepINRadius.hero, style: .continuous))
         .stepINShadow(.card)
+        .padding(.top, StepINSpacing.xs)
     }
 
     /// Subtle haptic, robot briefly thinks, then the flow opens normally.
@@ -187,7 +192,7 @@ private struct HomeGoalRow: View {
                     .font(StepINFont.body2)
                     .foregroundColor(StepINColor.textPrimary)
                     .lineLimit(2)
-                Text(goal.sourceJobTitle)
+                Text(goal.sourceLabel)
                     .font(StepINFont.caption)
                     .foregroundColor(StepINColor.textTertiary)
             }

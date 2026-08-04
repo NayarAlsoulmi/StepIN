@@ -153,7 +153,7 @@ struct StepINEmptyState: View {
 
     var body: some View {
         VStack(spacing: StepINSpacing.md) {
-            RobotView(state: robotState, size: 120)
+            RobotView(state: robotState, presentation: .emptyState)
             Text(title)
                 .font(StepINFont.h3)
                 .foregroundColor(StepINColor.textPrimary)
@@ -181,7 +181,7 @@ struct StepINLoadingView: View {
 
     var body: some View {
         VStack(spacing: StepINSpacing.md) {
-            RobotView(state: .thinking, size: 120)
+            RobotView(state: .thinking, presentation: .loading)
             Text(message)
                 .font(StepINFont.body1)
                 .foregroundColor(StepINColor.textSecondary)

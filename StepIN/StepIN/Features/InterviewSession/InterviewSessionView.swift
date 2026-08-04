@@ -33,7 +33,7 @@ struct InterviewSessionView: View {
 
                 // Center: robot + question + state label.
                 VStack(spacing: StepINSpacing.xl) {
-                    RobotView(state: viewModel.robotState, size: 130)
+                    RobotView(state: viewModel.robotState, presentation: .interview)
 
                     Text(viewModel.currentQuestionText)
                         .font(StepINFont.h2)
@@ -158,7 +158,7 @@ struct InterviewSessionView: View {
             StepINColor.background.opacity(0.97).ignoresSafeArea()
 
             VStack(spacing: StepINSpacing.xl) {
-                RobotView(state: .paused, size: 110)
+                RobotView(state: .paused, presentation: .compact)
                 Text("Interview Paused")
                     .font(StepINFont.h2)
                     .foregroundColor(StepINColor.textPrimary)

@@ -46,6 +46,8 @@ enum StepINColor {
     static let primaryLight = Color.stepINDynamic(light: 0xA394F7, dark: 0xB3A6FA)
     static let primarySoft  = Color.stepINDynamic(light: 0xEEE9FE, dark: 0x2A2542)
     static let accent       = primary
+    /// Soft cyan used only by the robot's listening pulse.
+    static let listeningCyan = Color.stepINDynamic(light: 0x4FD4E8, dark: 0x5CDEF0)
 
     // Text
     static let textPrimary   = Color.stepINDynamic(light: 0x1E1E24, dark: 0xF2F2F7)

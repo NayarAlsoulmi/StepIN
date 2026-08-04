@@ -25,7 +25,7 @@ struct AnalyzingView: View {
 
             VStack(spacing: StepINSpacing.xxl) {
                 Spacer()
-                RobotView(state: .analyzing, size: 140)
+                RobotView(state: .analyzing, presentation: .loading)
 
                 VStack(spacing: StepINSpacing.xs) {
                     Text("Thank you for your time today.")

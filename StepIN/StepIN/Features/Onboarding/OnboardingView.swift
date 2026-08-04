@@ -47,7 +47,7 @@ struct OnboardingView: View {
                 ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
                     VStack(spacing: StepINSpacing.xl) {
                         Spacer()
-                        RobotView(state: page.robotState, size: 150)
+                        RobotView(state: page.robotState, presentation: .homeHero)
                         VStack(spacing: StepINSpacing.sm) {
                             Text(page.title)
                                 .font(StepINFont.h1)

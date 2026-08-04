@@ -197,7 +197,7 @@ struct InterviewFlowView: View {
     private func analysisFailedView(interview: InterviewRecord) -> some View {
         VStack(spacing: StepINSpacing.xl) {
             Spacer()
-            RobotView(state: .idle, size: 110)
+            RobotView(state: .idle, presentation: .emptyState)
             Text("We couldn't finish your analysis")
                 .font(StepINFont.h3)
                 .foregroundColor(StepINColor.textPrimary)
