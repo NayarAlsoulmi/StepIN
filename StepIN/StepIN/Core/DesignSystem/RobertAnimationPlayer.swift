@@ -3,13 +3,29 @@
 //  StepIN
 //
 //  Sprite-sheet animation engine for the Robert character.
-//  Reads frame sequences from the bundled RobertAnimations folder and
-//  plays them efficiently using TimelineView. Frames are decoded once
-//  per session and kept in memory. Never modifies the source PNGs.
+//
+//  Frame loading and one-shot completion are driven by a stable playback
+//  controller — never by .task(id:) view-modifier form. Frame advancement uses
+//  TimelineView so sprite playback has an explicit render cadence.
+//
+//  WHY: On iOS 26, .task(id:) creates a DynamicContainer layout node inside
+//  the view modifier chain. When that container re-evaluates (e.g. when
+//  animRunning changes) while the view is inside NavigationStack → ScrollView,
+//  SwiftUI calls DynamicContainer.makeContainer from within ModifiedElements
+//  .makeElements, which calls it again from the same context. The call stack
+//  grows linearly with each modifier in the hierarchy until it overflows.
+//  Using @State-stored Tasks avoids placing any DynamicContainer in the chain.
 //
 
 import SwiftUI
 import UIKit
+import Observation
+
+// True when the process is the Xcode Preview host. All animation tasks,
+// timers, and frame loads are skipped in preview to prevent rapid
+// re-evaluation of #Preview closures from recreating ModelContainers
+// and triggering DynamicContainer layout recursion.
+private let isXcodePreview = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
 
 // MARK: - RobertAnimationState
 
@@ -19,7 +35,6 @@ enum RobertAnimationState: String, CaseIterable {
 
     var sequenceName: String { rawValue }
 
-    // One-shot states play once and stop on the last frame.
     var isOneShot: Bool {
         switch self {
         case .wave, .success, .thumbsUp, .wakeUp, .confused: true
@@ -57,18 +72,21 @@ struct RobertSpriteAnimation: Sendable {
 
 /// Singleton that loads and caches decoded UIImage frames.
 /// All mutations happen on MainActor; frame decoding is offloaded
-/// to a background Task.
+/// to a background Task. Evicts caches on memory warning.
 @MainActor
 final class RobertFrameCache {
     static let shared = RobertFrameCache()
 
     private var animations: [String: RobertSpriteAnimation] = [:]
     private var frameStore: [String: [UIImage]] = [:]
+    private static let fallback = makeFallbackImage()
 
     private init() {
         loadManifest()
         Task { @MainActor [weak self] in
-            for await _ in NotificationCenter.default.notifications(named: UIApplication.didReceiveMemoryWarningNotification) {
+            for await _ in NotificationCenter.default.notifications(
+                named: UIApplication.didReceiveMemoryWarningNotification
+            ) {
                 self?.frameStore.removeAll()
             }
         }
@@ -88,25 +106,34 @@ final class RobertFrameCache {
         return loaded
     }
 
+    static var fallbackImage: UIImage { fallback }
+
+    nonisolated private static func makeFallbackImage() -> UIImage {
+        if let namedFallback = UIImage(named: "StepINRobot") {
+            return namedFallback
+        }
+
+        for sequenceName in ["idle", "wakeUp", "wave"] {
+            if let firstFrame = loadFramesFromBundle(sequenceName: sequenceName).first {
+                return firstFrame
+            }
+        }
+
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 96, height: 96))
+        return renderer.image { context in
+            UIColor.clear.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 96, height: 96))
+        }
+    }
+
     // MARK: Bundle loading (nonisolated — runs on background thread)
 
     nonisolated private static func loadFramesFromBundle(sequenceName: String) -> [UIImage] {
-        var result: [UIImage] = []
-        var index = 0
-        while true {
-            let fname = String(format: "%@_%03d", sequenceName, index)
-            guard let url = frameURL(sequenceName: sequenceName, frameName: fname),
-                  let img = UIImage(contentsOfFile: url.path)
-            else { break }
-            result.append(img)
-            index += 1
-        }
-        return result
+        frameURLs(sequenceName: sequenceName)
+            .compactMap { UIImage(contentsOfFile: $0.path) }
     }
 
     nonisolated private static func frameURL(sequenceName: String, frameName: String) -> URL? {
-        // Try multiple candidate paths for robustness across different
-        // Xcode synchronized-group bundle layouts.
         let candidates: [String?] = [
             "RobertAnimations/\(sequenceName)",
             "StepIN/RobertAnimations/\(sequenceName)",
@@ -119,6 +146,46 @@ final class RobertFrameCache {
             ) { return url }
         }
         return nil
+    }
+
+    nonisolated private static func frameURLs(sequenceName: String) -> [URL] {
+        let subdirs: [String?] = [
+            "RobertAnimations/\(sequenceName)",
+            "StepIN/RobertAnimations/\(sequenceName)",
+            sequenceName,
+            nil
+        ]
+
+        let prefixedURLs = subdirs.flatMap { subdir in
+            Bundle.main.urls(
+                forResourcesWithExtension: "png",
+                subdirectory: subdir
+            ) ?? []
+        }
+        .filter { $0.deletingPathExtension().lastPathComponent.hasPrefix("\(sequenceName)_") }
+
+        if !prefixedURLs.isEmpty {
+            return prefixedURLs.sorted { lhs, rhs in
+                frameNumber(from: lhs, sequenceName: sequenceName) < frameNumber(from: rhs, sequenceName: sequenceName)
+            }
+        }
+
+        var sequentialURLs: [URL] = []
+        var index = 0
+        while true {
+            let frameName = String(format: "%@_%03d", sequenceName, index)
+            guard let url = frameURL(sequenceName: sequenceName, frameName: frameName) else { break }
+            sequentialURLs.append(url)
+            index += 1
+        }
+        return sequentialURLs
+    }
+
+    nonisolated private static func frameNumber(from url: URL, sequenceName: String) -> Int {
+        let name = url.deletingPathExtension().lastPathComponent
+        let prefix = "\(sequenceName)_"
+        guard name.hasPrefix(prefix) else { return .max }
+        return Int(name.dropFirst(prefix.count)) ?? .max
     }
 
     // MARK: Manifest
@@ -156,12 +223,13 @@ final class RobertFrameCache {
             ("confused",  10, 12, false),
         ]
         for (name, count, fps, loop) in specs {
-            animations[name] = RobertSpriteAnimation(name: name, frameCount: count, fps: fps, loop: loop)
+            animations[name] = RobertSpriteAnimation(
+                name: name, frameCount: count, fps: fps, loop: loop
+            )
         }
     }
 }
 
-// JSON shape matching animation_manifest.json
 private struct AnimationManifest: Decodable {
     let sequences: [SequenceEntry]
     struct SequenceEntry: Decodable {
@@ -172,89 +240,178 @@ private struct AnimationManifest: Decodable {
     }
 }
 
+// MARK: - RobertSpritePlaybackController
+
+@MainActor
+@Observable
+private final class RobertSpritePlaybackController {
+    private(set) var frames: [UIImage] = []
+    private(set) var animation: RobertSpriteAnimation? = nil
+    private(set) var sequenceName = ""
+    private(set) var playbackStartDate = Date.now
+
+    private var loadTask: Task<Void, Never>? = nil
+    private var completionTask: Task<Void, Never>? = nil
+    private var completedSequenceName: String? = nil
+
+    func start(
+        state: RobertAnimationState,
+        reduceMotion: Bool,
+        onComplete: (() -> Void)?
+    ) {
+        let newSequenceName = state.sequenceName
+        guard newSequenceName != sequenceName || frames.isEmpty else { return }
+
+        sequenceName = newSequenceName
+        frames = []
+        animation = nil
+        playbackStartDate = .now
+        completedSequenceName = nil
+
+        loadTask?.cancel()
+        completionTask?.cancel()
+        completionTask = nil
+
+        loadTask = Task { [weak self] in
+            let cache = RobertFrameCache.shared
+            let loadedAnimation = cache.animation(for: state)
+            let loadedFrames = await cache.frames(for: state)
+            guard !Task.isCancelled else { return }
+
+            self?.apply(
+                animation: loadedAnimation,
+                frames: loadedFrames,
+                state: state,
+                reduceMotion: reduceMotion,
+                onComplete: onComplete
+            )
+        }
+    }
+
+    func cancel() {
+        loadTask?.cancel()
+        loadTask = nil
+        completionTask?.cancel()
+        completionTask = nil
+    }
+
+    func currentFrame(
+        at date: Date,
+        reduceMotion: Bool,
+        scenePhase: ScenePhase
+    ) -> UIImage {
+        guard !frames.isEmpty else { return RobertFrameCache.fallbackImage }
+        guard !reduceMotion,
+              scenePhase != .background,
+              let animation,
+              animation.fps > 0
+        else { return frames[0] }
+
+        let index = frameIndex(at: date)
+        return frames[index]
+    }
+
+    func frameIndex(at date: Date) -> Int {
+        guard !frames.isEmpty,
+              let animation,
+              animation.fps > 0
+        else { return 0 }
+
+        let elapsed = max(0, date.timeIntervalSince(playbackStartDate))
+        let calculatedIndex = Int((elapsed * Double(animation.fps)).rounded(.down))
+        return animation.loop
+            ? calculatedIndex % frames.count
+            : min(calculatedIndex, frames.count - 1)
+    }
+
+    private func apply(
+        animation loadedAnimation: RobertSpriteAnimation?,
+        frames loadedFrames: [UIImage],
+        state: RobertAnimationState,
+        reduceMotion: Bool,
+        onComplete: (() -> Void)?
+    ) {
+        animation = loadedAnimation ?? RobertSpriteAnimation(
+            name: state.sequenceName,
+            frameCount: loadedFrames.count,
+            fps: state.isOneShot ? 15 : 12,
+            loop: !state.isOneShot
+        )
+        frames = loadedFrames
+        playbackStartDate = .now
+
+        guard !loadedFrames.isEmpty,
+              state.isOneShot,
+              let animation
+        else { return }
+
+        let duration: Duration = reduceMotion
+            ? .milliseconds(150)
+            : .seconds(Double(max(animation.frameCount, loadedFrames.count)) / Double(max(animation.fps, 1)))
+        let completingSequenceName = state.sequenceName
+        completionTask = Task { [weak self] in
+            try? await Task.sleep(for: duration)
+            guard !Task.isCancelled,
+                  self?.sequenceName == completingSequenceName,
+                  self?.completedSequenceName != completingSequenceName
+            else { return }
+
+            self?.completedSequenceName = completingSequenceName
+            onComplete?()
+        }
+    }
+}
+
 // MARK: - RobertAnimationPlayer
 
 /// Displays the Robert sprite animation for a given state.
-/// Uses a display-linked TimelineView for efficiency.
-/// Falls back to the static StepINRobot asset when frames are unavailable.
+///
+/// Imperative task management: frame loading and the playback loop are stored
+/// in @State Task references and started/stopped via .onAppear/.onChange/.onDisappear.
+/// This avoids .task(id:) view modifiers, which create DynamicContainer layout nodes
+/// that trigger layout recursion on iOS 26 inside ScrollView + NavigationStack.
 struct RobertAnimationPlayer: View {
     let state: RobertAnimationState
     let size: CGFloat
     var audioLevel: Double = 0
     var onComplete: (() -> Void)? = nil
 
-    @State private var frames: [UIImage] = []
-    @State private var anim: RobertSpriteAnimation? = nil
-    @State private var startDate = Date()
+    @State private var playback = RobertSpritePlaybackController()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        Group {
-            if frames.isEmpty {
-                Image("StepINRobot")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: size, height: size)
-            } else if reduceMotion {
-                Image(uiImage: frames[0])
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: size, height: size)
-            } else {
-                TimelineView(.animation(paused: scenePhase != .active)) { context in
-                    Image(uiImage: frames[frameIndex(at: context.date)])
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: size, height: size)
-                }
-            }
+        TimelineView(.periodic(from: .now, by: 1.0 / 30.0)) { timeline in
+            Image(uiImage: playback.currentFrame(
+                at: timeline.date,
+                reduceMotion: reduceMotion,
+                scenePhase: scenePhase
+            ))
+                .resizable()
+                .scaledToFit()
+                .frame(width: size, height: size)
         }
-        .task(id: state) {
-            startDate = Date()
-            let cache = RobertFrameCache.shared
-            let loadedAnim = cache.animation(for: state)
-            let loadedFrames = await cache.frames(for: state)
-            guard !Task.isCancelled else { return }
-            anim = loadedAnim
-            frames = loadedFrames
-            startDate = Date()
-
-            // One-shot completion callback.
-            guard let loadedAnim, state.isOneShot else { return }
-            let duration: Duration = reduceMotion
-                ? .milliseconds(150)
-                : .seconds(Double(loadedAnim.frameCount) / Double(loadedAnim.fps))
-            try? await Task.sleep(for: duration)
-            guard !Task.isCancelled else { return }
-            onComplete?()
+        // All async work is skipped in Preview to keep Canvas stable.
+        .onAppear { guard !isXcodePreview else { return }; beginPlayback() }
+        .onChange(of: state) { _, _ in guard !isXcodePreview else { return }; beginPlayback() }
+        .onDisappear {
+            guard !isXcodePreview else { return }
+            playback.cancel()
         }
         .accessibilityElement()
         .accessibilityLabel(state.accessibilityLabel)
     }
 
-    private func frameIndex(at date: Date) -> Int {
-        guard let anim, !frames.isEmpty else { return 0 }
-        let elapsed = max(0, date.timeIntervalSince(startDate))
-        let speedMult: Double = state == .speaking
-            ? (0.85 + 0.3 * max(0, min(1, audioLevel)))
-            : 1.0
-        let fps = Double(anim.fps) * speedMult
-        guard fps > 0 else { return 0 }
-        let count = frames.count
-
-        if anim.loop {
-            let period = Double(count) / fps
-            guard period > 0 else { return 0 }
-            let t = elapsed.truncatingRemainder(dividingBy: period)
-            return min(Int(t * fps), count - 1)
-        } else {
-            let maxT = Double(count - 1) / fps
-            let t = min(elapsed, maxT)
-            return min(Int(t * fps), count - 1)
-        }
+    private func beginPlayback() {
+        playback.start(
+            state: state,
+            reduceMotion: reduceMotion,
+            onComplete: onComplete
+        )
     }
 }
+
+// MARK: - Preview
 
 #Preview("All states") {
     ScrollView {

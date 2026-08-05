@@ -13,6 +13,7 @@ struct SplashView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var logoVisible = false
+    @State private var finishTask: Task<Void, Never>? = nil
 
     var body: some View {
         ZStack {
@@ -33,10 +34,18 @@ struct SplashView: View {
                 .animation(reduceMotion ? nil : .easeIn(duration: StepINMotion.slow), value: logoVisible)
             }
         }
-        .task {
+        .onAppear {
+            finishTask?.cancel()
             logoVisible = true
-            try? await Task.sleep(for: .seconds(2.2))
-            onFinished()
+            finishTask = Task {
+                try? await Task.sleep(for: .seconds(2.2))
+                guard !Task.isCancelled else { return }
+                onFinished()
+            }
+        }
+        .onDisappear {
+            finishTask?.cancel()
+            finishTask = nil
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("StepIN. Step into your next opportunity.")

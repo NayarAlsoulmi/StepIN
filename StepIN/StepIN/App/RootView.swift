@@ -28,7 +28,7 @@ struct RootView: View {
                 CreateProfileView {
                     withAnimation(StepINMotion.fade) { appState.hasProfile = true }
                 }
-                transition(.opacity)
+                .transition(.opacity)
             } else {
                 RootTabView()
                     .transition(.opacity)

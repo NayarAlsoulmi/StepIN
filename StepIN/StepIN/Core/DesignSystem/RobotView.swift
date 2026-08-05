@@ -13,6 +13,7 @@
 //
 
 import SwiftUI
+import RiveRuntime
 
 // MARK: - RobotState
 
@@ -92,6 +93,62 @@ struct RobotView: View {
             size: effectiveSize,
             audioLevel: audioLevel,
             onComplete: onOneShotComplete
+        )
+    }
+}
+
+// MARK: - RobertRendererView
+
+/// Official Robert renderer. Uses StepINRobert.riv when bundled, otherwise
+/// falls back to the existing PNG sprite player and its static image fallback.
+struct RobertRendererView: View {
+    let state: RobotState
+    var robertState: RobertAnimationState? = nil
+    var presentation: RobotPresentation = .compact
+    var size: CGFloat? = nil
+    var audioLevel: Double = 0
+    var onOneShotComplete: (() -> Void)? = nil
+
+    @State private var riveViewModel: RiveViewModel? = nil
+
+    private var effectiveSize: CGFloat {
+        size ?? presentation.size
+    }
+
+    private var effectiveAnimState: RobertAnimationState {
+        robertState ?? state.toRobertState
+    }
+
+    var body: some View {
+        Group {
+            if let riveViewModel {
+                riveViewModel.view()
+                    .frame(width: effectiveSize, height: effectiveSize)
+            } else {
+                RobertAnimationPlayer(
+                    state: effectiveAnimState,
+                    size: effectiveSize,
+                    audioLevel: audioLevel,
+                    onComplete: onOneShotComplete
+                )
+            }
+        }
+        .frame(width: effectiveSize, height: effectiveSize)
+        .onAppear(perform: configureRiveIfAvailable)
+        .accessibilityElement()
+        .accessibilityLabel(effectiveAnimState.accessibilityLabel)
+    }
+
+    private func configureRiveIfAvailable() {
+        guard riveViewModel == nil,
+              Bundle.main.url(forResource: "StepINRobert", withExtension: "riv") != nil
+        else { return }
+
+        riveViewModel = RiveViewModel(
+            fileName: "StepINRobert",
+            fit: .contain,
+            alignment: .center,
+            autoPlay: true
         )
     }
 }
