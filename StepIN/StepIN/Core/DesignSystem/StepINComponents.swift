@@ -193,8 +193,48 @@ struct StepINLoadingView: View {
 
 // MARK: - Screen background
 
-struct StepINScreenBackground: View {
+
+struct Background: View {
     var body: some View {
-        StepINColor.background.ignoresSafeArea()
+        ZStack {
+            
+            Ellipse()
+                .fill(Color(hex: 0xF6E3D8))
+                .frame(width: 346, height: 204)
+                .blur(radius: 80)
+                .position(x: -47 + 173, y: -16 + 102)
+
+            // Top Right
+            Ellipse()
+                .fill(Color(hex: 0xE8E3E9))
+                .frame(width: 346, height: 204)
+                .blur(radius: 80)
+                .position(x: 162 + 173, y: -19 + 102)
+
+            // Center
+            Ellipse()
+                .fill(Color(hex: 0xE3D7E9))
+                .frame(width: 346, height: 204)
+                .blur(radius: 105)
+                .position(x: 28 + 173, y: 335 + 102)
+
+            // Bottom Right
+            Ellipse()
+                .fill(Color(hex: 0xF4D6E8))
+                .opacity(0.5)
+                .frame(width: 346, height: 204)
+                .blur(radius: 90)
+                .position(x: 195 + 173, y: 670 + 102)
+
+            // Bottom Left
+            Ellipse()
+                .fill(Color(hex: 0xD9C7F8))
+                .opacity(0.55)
+                .frame(width: 346, height: 204)
+                .blur(radius: 90)
+                .position(x: -68 + 173, y: 636 + 102)
+        }
+        .frame(width: 402, height: 874)
     }
 }
+

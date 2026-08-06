@@ -30,66 +30,69 @@ struct InterviewDetailsView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: StepINSpacing.xl) {
-                summaryHeader
-
-                Picker("Section", selection: $segment) {
-                    ForEach(Segment.allCases, id: \.self) { segment in
-                        Text(segment.rawValue).tag(segment)
+        ScreenContainer{
+            ScrollView {
+                VStack(spacing: StepINSpacing.xl) {
+                    summaryHeader
+                    
+                    Picker("Section", selection: $segment) {
+                        ForEach(Segment.allCases, id: \.self) { segment in
+                            Text(segment.rawValue).tag(segment)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    
+                    switch segment {
+                    case .analysis: analysisSection
+                    case .chat: chatSection
                     }
                 }
-                .pickerStyle(.segmented)
-
-                switch segment {
-                case .analysis: analysisSection
-                case .chat: chatSection
-                }
+                .padding(StepINSpacing.screenH)
+                .padding(.bottom, StepINSpacing.xxl)
             }
-            .padding(StepINSpacing.screenH)
-            .padding(.bottom, StepINSpacing.xxl)
-        }
-        .background(StepINColor.background)
-        .navigationTitle(interview.jobTitle)
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    // MARK: Summary
-
-    private var summaryHeader: some View {
-        StepINCard(padding: StepINSpacing.lg) {
-            HStack(alignment: .center, spacing: StepINSpacing.md) {
-                VStack(alignment: .leading, spacing: StepINSpacing.xs) {
-                    Text(interview.jobTitle)
-                        .font(StepINFont.h2)
-                        .foregroundColor(StepINColor.textPrimary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if let company = interview.company {
-                        Text(company)
-                            .font(StepINFont.body2)
-                            .foregroundColor(StepINColor.textSecondary)
-                    }
-                    Text(interview.startedAt.formatted(date: .abbreviated, time: .shortened))
-                        .font(StepINFont.caption)
-                        .foregroundColor(StepINColor.textTertiary)
-                    if interview.isPartial {
-                        Text("Partial")
-                            .font(StepINFont.body5)
-                            .foregroundColor(StepINColor.warning)
-                            .padding(.horizontal, StepINSpacing.xs)
-                            .padding(.vertical, 2)
-                            .background(StepINColor.warning.opacity(0.15))
-                            .clipShape(Capsule())
-                            .padding(.top, StepINSpacing.xxs)
-                    }
-                }
-                Spacer(minLength: StepINSpacing.md)
-                if let score = interview.overallScore {
-                    ScoreBadge(score: score, size: 72)
-                }
-            }
+            .background(StepINColor.background)
+            .navigationTitle(interview.jobTitle)
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
+        
+        // MARK: Summary
+        
+        private var summaryHeader: some View {
+            StepINCard(padding: StepINSpacing.lg) {
+                HStack(alignment: .center, spacing: StepINSpacing.md) {
+                    VStack(alignment: .leading, spacing: StepINSpacing.xs) {
+                        Text(interview.jobTitle)
+                            .font(StepINFont.h2)
+                            .foregroundColor(StepINColor.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let company = interview.company {
+                            Text(company)
+                                .font(StepINFont.body2)
+                                .foregroundColor(StepINColor.textSecondary)
+                        }
+                        Text(interview.startedAt.formatted(date: .abbreviated, time: .shortened))
+                            .font(StepINFont.caption)
+                            .foregroundColor(StepINColor.textTertiary)
+                        if interview.isPartial {
+                            Text("Partial")
+                                .font(StepINFont.body5)
+                                .foregroundColor(StepINColor.warning)
+                                .padding(.horizontal, StepINSpacing.xs)
+                                .padding(.vertical, 2)
+                                .background(StepINColor.warning.opacity(0.15))
+                                .clipShape(Capsule())
+                                .padding(.top, StepINSpacing.xxs)
+                        }
+                    }
+                    Spacer(minLength: StepINSpacing.md)
+                    if let score = interview.overallScore {
+                        ScoreBadge(score: score, size: 72)
+                    }
+                }
+            }
+        }
+    
 
     // MARK: Analysis
 

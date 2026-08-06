@@ -21,12 +21,13 @@ struct HomeView: View {
     private var interviews: [InterviewRecord]
     @Query(sort: \AssignedGoal.createdAt, order: .reverse)
     private var allGoals: [AssignedGoal]
-
+    
     @State private var showInterviewFlow = false
     @State private var isStartingInterview = false
     @State private var heroRobotState: RobotState = .idle
     @State private var heroOneShot: RobertAnimationState? = nil
     @State private var startFeedbackTrigger = false
+<<<<<<< Updated upstream
     @State private var robertTapTrigger = false
     @State private var pendingHeroWaves = 0
 
@@ -58,8 +59,30 @@ struct HomeView: View {
 
     // MARK: Body
 
+=======
+    
+    private var firstName: String { profiles.first?.firstName ?? "there" }
+    
+    private var completedInterviews: [InterviewRecord] {
+        interviews.filter { $0.status == .completed }
+    }
+    private var recentInterviews: [InterviewRecord] {
+        Array(completedInterviews.prefix(2))
+    }
+    
+    private var activeGoals: [AssignedGoal] {
+        allGoals.filter { $0.status == .toDo }
+    }
+    private var recentGoals: [AssignedGoal] {
+        Array(activeGoals.prefix(3))
+        
+    }
+    
+>>>>>>> Stashed changes
     var body: some View {
+        
         NavigationStack {
+<<<<<<< Updated upstream
             ScrollView {
                 VStack(alignment: .leading, spacing: StepINSpacing.section) {
                     headerView
@@ -237,20 +260,112 @@ struct HomeView: View {
                 ForEach(recentInterviews) { interview in
                     NavigationLink(value: interview.id) {
                         InterviewHistoryCard(interview: interview)
+=======
+            ScreenContainer{
+                
+                ScrollView {
+                    
+                    VStack(alignment: .leading, spacing:
+                            
+                            StepINSpacing.section) {
+                        heroCard
+                        recentInterviewsSection
+                        recentGoalsSection
                     }
-                    .buttonStyle(StepINPressStyle())
+                            .padding(.horizontal, StepINSpacing.screenH)
+                            .padding(.bottom, StepINSpacing.xxl)
+                }
+                .navigationTitle("Welcome back, \(firstName)")
+                .padding(.top,120)
+                .padding(.bottom, 40)
+                .navigationDestination(for: UUID.self) { id in
+                    if let interview = interviews.first(where: { $0.id == id }) {
+                        InterviewDetailsView(interview: interview)
+                    }
+                }
+                .sensoryFeedback(.impact(weight: .light), trigger: startFeedbackTrigger)
+                .fullScreenCover(isPresented: $showInterviewFlow) {
+                    InterviewFlowView {
+                        showInterviewFlow = false
+                        heroRobotState = .idle
+>>>>>>> Stashed changes
+                    }
                 }
             }
         }
-    }
-
-    // MARK: Recent goals
-
-    @ViewBuilder
-    private var recentGoalsSection: some View {
-        if !recentGoals.isEmpty {
+            .onAppear {
+                guard !hasAppeared else { return }
+                hasAppeared = true
+                heroOneShot = .wakeUp
+            }
+        }
+    
+        
+        // MARK: Hero
+        
+        private var heroCard: some View {
+            VStack(spacing: StepINSpacing.md) {
+                RobotView(
+                    state: heroRobotState,
+                    robertState: heroOneShot,
+                    presentation: .homeHero,
+                    onOneShotComplete: { heroOneShot = nil }
+                )
+                
+                VStack(spacing: StepINSpacing.xs) {
+                    Text("Ready for your next interview?")
+                        .font(StepINFont.h2)
+                        .foregroundColor(StepINColor.onPrimary)
+                        .multilineTextAlignment(.center)
+                    Text("Practice with an AI interviewer tailored to your role.")
+                        .font(StepINFont.bodyRegular)
+                        .foregroundColor(StepINColor.onPrimary.opacity(0.9))
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                
+                Button(action: startInterview) {
+                    Text("Start Interview")
+                        .font(StepINFont.button)
+                        .foregroundColor(StepINColor.primary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 54)
+                        .background(StepINColor.onPrimary)
+                        .clipShape(RoundedRectangle(cornerRadius: StepINRadius.medium, style: .continuous))
+                }
+                .buttonStyle(StepINPressStyle())
+                .padding(.top, StepINSpacing.xs)
+                .accessibilityLabel("Start Interview")
+            }
+            .padding(StepINSpacing.xl)
+            .frame(maxWidth: .infinity)
+            .background(StepINGradient.hero)
+            .clipShape(RoundedRectangle(cornerRadius: StepINRadius.hero, style: .continuous))
+            .stepINShadow(.card)
+            .padding(.top, StepINSpacing.xs)
+        }
+        
+        /// Haptic + wave animation, then open the interview flow.
+        private func startInterview() {
+            // Block re-entry while a one-shot is in progress.
+            guard heroOneShot == nil || heroOneShot == .wakeUp else { return }
+            startFeedbackTrigger.toggle()
+            heroRobotState = .thinking
+            heroOneShot = .wave
+            // Wave is 12 frames @ 15fps = 0.8 s. Open the flow once it finishes.
+            Task {
+                try? await Task.sleep(for: .milliseconds(900))
+                showInterviewFlow = true
+            }
+        }
+        
+        // MARK: Recent interviews
+        
+        @ViewBuilder
+        private var recentInterviewsSection: some View {
             VStack(alignment: .leading, spacing: StepINSpacing.md) {
                 StepINSectionHeader(
+<<<<<<< Updated upstream
                     title: "Recent Goals",
                     actionTitle: activeGoals.count > 3 ? "See All" : nil,
                     action: activeGoals.count > 3
@@ -267,6 +382,52 @@ struct HomeView: View {
                                 Divider()
                                     .background(StepINColor.divider)
                                     .padding(.vertical, StepINSpacing.sm)
+=======
+                    title: "Recent Interviews",
+                    actionTitle: completedInterviews.count > 2 ? "See All" : nil,
+                    action: completedInterviews.count > 2 ? { appState.selectedTab = .interviews } : nil
+                )
+                if recentInterviews.isEmpty {
+                    StepINCard {
+                        StepINEmptyState(
+                            title: "No interviews yet",
+                            message: "Start your first interview and receive personalized feedback.",
+                            actionTitle: "Start Interview",
+                            action: startInterview
+                        )
+                    }
+                } else {
+                    ForEach(recentInterviews) { interview in
+                        NavigationLink(value: interview.id) {
+                            InterviewHistoryCard(interview: interview)
+                        }
+                        .buttonStyle(StepINPressStyle())
+                    }
+                }
+            }
+        }
+        
+        // MARK: Recent goals
+        
+        @ViewBuilder
+        private var recentGoalsSection: some View {
+            if !recentGoals.isEmpty {
+                VStack(alignment: .leading, spacing: StepINSpacing.md) {
+                    StepINSectionHeader(
+                        title: "Recent Goals",
+                        actionTitle: activeGoals.count > 3 ? "See All" : nil,
+                        action: activeGoals.count > 3 ? { appState.selectedTab = .goals } : nil
+                    )
+                    StepINCard {
+                        VStack(spacing: 0) {
+                            ForEach(Array(recentGoals.enumerated()), id: \.element.id) { index, goal in
+                                HomeGoalRow(goal: goal)
+                                if index < recentGoals.count - 1 {
+                                    Divider()
+                                        .background(StepINColor.divider)
+                                        .padding(.vertical, StepINSpacing.sm)
+                                }
+>>>>>>> Stashed changes
                             }
                         }
                     }
@@ -274,6 +435,7 @@ struct HomeView: View {
             }
         }
     }
+<<<<<<< Updated upstream
 }
 
 // MARK: - HomeGreetingHeader
@@ -495,12 +657,35 @@ private struct HomeGoalRow: View {
                 Text(goal.homeSourceLabel)
                     .font(StepINFont.caption)
                     .foregroundColor(StepINColor.textTertiary)
+=======
+    
+    /// Compact goal row for the Home dashboard.
+    private struct HomeGoalRow: View {
+        let goal: AssignedGoal
+        
+        var body: some View {
+            HStack(spacing: StepINSpacing.sm) {
+                Image(systemName: goal.status == .completed ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 22))
+                    .foregroundColor(goal.status == .completed ? StepINColor.success : StepINColor.textTertiary)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(goal.title)
+                        .font(StepINFont.body2)
+                        .foregroundColor(StepINColor.textPrimary)
+                        .lineLimit(2)
+                    Text(goal.homeSourceLabel)
+                        .font(StepINFont.caption)
+                        .foregroundColor(StepINColor.textTertiary)
+                }
+                
+                Spacer(minLength: 0)
+>>>>>>> Stashed changes
             }
-
-            Spacer(minLength: 0)
+            .accessibilityElement(children: .combine)
         }
-        .accessibilityElement(children: .combine)
     }
+<<<<<<< Updated upstream
 }
 
 private extension AssignedGoal {
@@ -514,3 +699,25 @@ private extension AssignedGoal {
         .environment(AppState(hasProfile: true))
         .modelContainer(PreviewData.container)
 }
+=======
+    
+    private extension AssignedGoal {
+        /// "From UX Design Interview" format used on the Home dashboard.
+        var homeSourceLabel: String {
+            "From \(sourceJobTitle) Interview"
+        }
+    }
+    
+    #Preview("With data") {
+        HomeView()
+            .environment(AppState(hasProfile: true))
+            .modelContainer(PreviewData.container)
+    }
+    
+    #Preview("Empty") {
+        HomeView()
+            .environment(AppState(hasProfile: true))
+            .modelContainer(PreviewData.emptyContainer)
+    }
+
+>>>>>>> Stashed changes
