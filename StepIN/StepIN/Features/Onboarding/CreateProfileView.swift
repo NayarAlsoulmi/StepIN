@@ -56,7 +56,7 @@ struct CreateProfileView: View {
                 }
                 .padding(StepINSpacing.screenH)
             }
-            .background(StepINColor.background)
+            .background(StepINScreenBackground())
             .navigationTitle("Create Profile")
             .navigationBarTitleDisplayMode(.inline)
         }

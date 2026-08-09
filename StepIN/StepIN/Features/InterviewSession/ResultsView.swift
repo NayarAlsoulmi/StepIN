@@ -98,7 +98,7 @@ struct ResultsView: View {
                 .padding(.bottom, StepINSpacing.xxl)
             }
         }
-        .background(StepINColor.background)
+        .background(StepINScreenBackground())
         .task { guard !isXcodePreview else { return }; await runGoodbyeSequence() }
     }
 

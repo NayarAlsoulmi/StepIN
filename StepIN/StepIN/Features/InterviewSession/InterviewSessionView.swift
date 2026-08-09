@@ -24,7 +24,7 @@ struct InterviewSessionView: View {
 
     var body: some View {
         ZStack {
-            StepINColor.background.ignoresSafeArea()
+            StepINScreenBackground()
 
             VStack(spacing: 0) {
                 topBar
@@ -100,7 +100,7 @@ struct InterviewSessionView: View {
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(StepINColor.textSecondary)
                     .frame(width: 44, height: 44)
-                    .background(StepINColor.surface)
+                    .background(.ultraThinMaterial, in: Circle())
                     .clipShape(Circle())
             }
             .accessibilityLabel("Pause interview")
@@ -115,7 +115,7 @@ struct InterviewSessionView: View {
                     .foregroundColor(StepINColor.error)
                     .frame(height: 44)
                     .padding(.horizontal, StepINSpacing.md)
-                    .background(StepINColor.surface)
+                    .background(.ultraThinMaterial, in: Capsule())
                     .clipShape(Capsule())
             }
             .accessibilityLabel("End interview")
@@ -165,7 +165,7 @@ struct InterviewSessionView: View {
 
     private var pauseOverlay: some View {
         ZStack {
-            StepINColor.background.opacity(0.97).ignoresSafeArea()
+            StepINScreenBackground()
 
             VStack(spacing: StepINSpacing.xl) {
                 RobotView(state: .paused, presentation: .compact)
@@ -188,7 +188,7 @@ struct InterviewSessionView: View {
 
     private var realtimeErrorOverlay: some View {
         ZStack {
-            StepINColor.background.opacity(0.97).ignoresSafeArea()
+            StepINScreenBackground()
 
             VStack(spacing: StepINSpacing.lg) {
                 RobotView(state: .idle, presentation: .compact)

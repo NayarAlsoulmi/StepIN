@@ -104,19 +104,35 @@ struct StepINPressStyle: ButtonStyle {
 struct StepINCard<Content: View>: View {
     var padding: CGFloat = StepINSpacing.md
     var background: Color = StepINColor.surface
+    var tintOpacity: Double = 0.12
     @ViewBuilder var content: Content
 
     var body: some View {
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(background)
             .clipShape(RoundedRectangle(cornerRadius: StepINRadius.large, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: StepINRadius.large, style: .continuous)
-                    .stroke(StepINColor.border, lineWidth: 1)
-            )
-            .stepINShadow(.subtle)
+            .background(cardBackground)
+    }
+
+    @ViewBuilder
+    private var cardBackground: some View {
+        if #available(iOS 26.0, *) {
+            RoundedRectangle(cornerRadius: StepINRadius.large, style: .continuous)
+                .fill(background.opacity(tintOpacity))
+                .glassEffect(
+                    .regular.tint(Color.white.opacity(0.01)),
+                    in: RoundedRectangle(cornerRadius: StepINRadius.large, style: .continuous)
+                )
+        } else {
+            RoundedRectangle(cornerRadius: StepINRadius.large, style: .continuous)
+                .fill(.white.opacity(0.55))
+                .overlay(
+                    RoundedRectangle(cornerRadius: StepINRadius.large, style: .continuous)
+                        .stroke(.white.opacity(0.8), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.05), radius: 24, y: 12)
+        }
     }
 }
 
@@ -194,10 +210,63 @@ struct StepINLoadingView: View {
 // MARK: - Screen background
 
 
+struct StepINScreenBackground: View {
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack {
+                Color(hex: 0xFDFDFE)
+                    .ignoresSafeArea()
+
+                let width = proxy.size.width
+                let height = proxy.size.height
+                let glowWidth = max(width * 0.86, 346)
+                let glowHeight = max(height * 0.23, 204)
+
+                // Top Left
+                Ellipse()
+                    .fill(Color(hex: 0xF6E3D8))
+                    .frame(width: glowWidth, height: glowHeight)
+                    .blur(radius: 80)
+                    .position(x: width * 0.31, y: height * 0.10)
+
+                // Top Right
+                Ellipse()
+                    .fill(Color(hex: 0xE8E3E9))
+                    .frame(width: glowWidth, height: glowHeight)
+                    .blur(radius: 80)
+                    .position(x: width * 0.83, y: height * 0.10)
+
+                // Center
+                Ellipse()
+                    .fill(Color(hex: 0xE3D7E9))
+                    .frame(width: glowWidth, height: glowHeight)
+                    .blur(radius: 105)
+                    .position(x: width * 0.50, y: height * 0.50)
+
+                // Bottom Right
+                Ellipse()
+                    .fill(Color(hex: 0xF4D6E8))
+                    .opacity(0.5)
+                    .frame(width: glowWidth, height: glowHeight)
+                    .blur(radius: 90)
+                    .position(x: width * 0.92, y: height * 0.88)
+
+                // Bottom Left
+                Ellipse()
+                    .fill(Color(hex: 0xD9C7F8))
+                    .opacity(0.55)
+                    .frame(width: glowWidth, height: glowHeight)
+                    .blur(radius: 90)
+                    .position(x: width * 0.26, y: height * 0.85)
+            }
+            .ignoresSafeArea()
+        }
+    }
+}
+
 struct Background: View {
     var body: some View {
         ZStack {
-            
             Ellipse()
                 .fill(Color(hex: 0xF6E3D8))
                 .frame(width: 346, height: 204)
@@ -237,4 +306,3 @@ struct Background: View {
         .frame(width: 402, height: 874)
     }
 }
-

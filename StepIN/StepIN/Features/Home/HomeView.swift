@@ -27,6 +27,7 @@ struct HomeView: View {
     @State private var startFeedbackTrigger = false
     @State private var robertTapTrigger = false
     @State private var pendingHeroWaves = 0
+    @State private var showProfile = false
 
     // Entry — 0 → 1 drives opacity, scale, and vertical offset together
     @State private var robertAppeared: Double = 0
@@ -58,17 +59,21 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: StepINSpacing.section) {
-                    headerView
-                    heroCard
-                    recentInterviewsSection
-                    recentGoalsSection
+            VStack(spacing: 0) {
+                headerView
+                    .padding(.horizontal, StepINSpacing.screenH)
+                    .padding(.bottom, StepINSpacing.section)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: StepINSpacing.section) {
+                        heroCard
+                        recentInterviewsSection
+                        recentGoalsSection
+                    }
+                    .padding(.horizontal, StepINSpacing.screenH)
+                    .padding(.bottom, StepINSpacing.xxl)
                 }
-                .padding(.horizontal, StepINSpacing.screenH)
-                .padding(.bottom, StepINSpacing.xxl)
             }
-            .background(StepINColor.background)
+            .background(StepINScreenBackground())
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: UUID.self) { id in
                 if let interview = interviews.first(where: { $0.id == id }) {
@@ -77,6 +82,20 @@ struct HomeView: View {
             }
             .sensoryFeedback(.impact(weight: .light), trigger: startFeedbackTrigger)
             .sensoryFeedback(.impact(weight: .light), trigger: robertTapTrigger)
+            .fullScreenCover(isPresented: $showProfile) {
+                NavigationStack {
+                    ProfileView(embedsInNavigationStack: false)
+                        .toolbar(.visible, for: .navigationBar)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Close") {
+                                    showProfile = false
+                                }
+                                .foregroundStyle(StepINColor.primary)
+                            }
+                        }
+                }
+            }
             .fullScreenCover(isPresented: $showInterviewFlow) {
                 InterviewFlowView {
                     showInterviewFlow = false
@@ -91,7 +110,11 @@ struct HomeView: View {
     // MARK: Premium header
 
     private var headerView: some View {
-        HomeGreetingHeader(firstName: firstName, initials: userInitials)
+        HomeGreetingHeader(
+            firstName: firstName,
+            initials: userInitials,
+            profileAction: { showProfile = true }
+        )
             .padding(.top, StepINSpacing.md)
     }
 
@@ -273,10 +296,19 @@ struct HomeView: View {
 private struct HomeGreetingHeader: View {
     let firstName: String
     let initials: String
+    let profileAction: () -> Void
 
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
-            ProfileAvatarView(initials: initials)
+            Button {
+                profileAction()
+            } label: {
+                ProfileAvatarView(initials: initials)
+                    .frame(width: 66, height: 66)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Profile")
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("Good morning,")
@@ -299,8 +331,6 @@ private struct HomeGreetingHeader: View {
 
             Spacer(minLength: 0)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Good morning, \(firstName). Ready to build your confidence today?")
     }
 }
 
@@ -313,6 +343,7 @@ private struct ProfileAvatarView: View {
         ZStack {
             Circle()
                 .fill(StepINColor.primarySoft)
+                .allowsHitTesting(false)
 
             Text(initials)
                 .font(.system(.headline, design: .default, weight: .semibold))
@@ -320,11 +351,13 @@ private struct ProfileAvatarView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .padding(8)
+                .allowsHitTesting(false)
         }
-        .frame(width: 58, height: 58)
+        .frame(width: 66, height: 66)
         .overlay(
             Circle()
                 .strokeBorder(Color.white.opacity(0.92), lineWidth: 1)
+                .allowsHitTesting(false)
         )
         .shadow(color: StepINColor.shadow.opacity(0.45), radius: 7, x: 0, y: 3)
         .accessibilityHidden(true)
@@ -374,13 +407,13 @@ private struct HomeInterviewHeroCard: View {
         VStack(alignment: .leading, spacing: StepINSpacing.sm) {
             Text("Ready for your next interview?")
                 .font(.system(.title3, design: .default, weight: .bold))
-                .foregroundColor(StepINColor.onPrimary)
+                .foregroundColor(Color(hex: 0x393939))
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
 
             Text("Practice with an AI interviewer tailored to your role.")
                 .font(.system(.subheadline, design: .default, weight: .regular))
-                .foregroundColor(StepINColor.onPrimary.opacity(0.86))
+                .foregroundColor(Color(hex: 0x393939).opacity(0.99))
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -400,9 +433,9 @@ private struct HomeInterviewHeroCard: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.84)
                 .frame(maxWidth: .infinity)
-                .frame(minHeight: 44)
+                .frame(minHeight: 50)
                 .padding(.horizontal, StepINSpacing.sm)
-                .background(StepINColor.onPrimary)
+                .background(StepINColor.primarySoft)
                 .clipShape(
                     RoundedRectangle(cornerRadius: StepINRadius.medium, style: .continuous)
                 )
@@ -418,7 +451,7 @@ private struct HomeInterviewHeroCard: View {
         ZStack(alignment: .bottomTrailing) {
             StepINGradient.robotGlow
                 .frame(width: 132, height: 132)
-                .opacity(0.26)
+                .opacity(0.1)
 
             Circle()
                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
@@ -456,11 +489,81 @@ private struct HomeInterviewHeroCard: View {
     }
 
     private var cardBackground: some View {
-        StepINGradient.hero
-            .overlay(
-                RoundedRectangle(cornerRadius: StepINRadius.hero, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
+        RoundedRectangle(
+            cornerRadius: StepINRadius.hero,
+            style: .continuous
+        )
+        .fill(.ultraThickMaterial)
+        .overlay {
+            ZStack {
+                Color(hex: 0x8D68F6)
+                    .opacity(0.45)
+
+                Circle()
+                    .fill(Color(hex: 0xC084FC))
+                    .frame(width: 240, height: 240)
+                    .blur(radius: 90)
+                    .offset(x: -120, y: -100)
+
+                Circle()
+                    .fill(Color(hex: 0x7DD3FC))
+                    .frame(width: 220, height: 220)
+                    .blur(radius: 90)
+                    .offset(x: 130, y: -80)
+
+                Circle()
+                    .fill(Color(hex: 0xF39AC7))
+                    .frame(width: 220, height: 220)
+                    .blur(radius: 100)
+                    .offset(x: 140, y: 120)
+
+                Circle()
+                    .fill(Color(hex: 0xFDBA74))
+                    .frame(width: 220, height: 220)
+                    .blur(radius: 110)
+                    .offset(x: -120, y: 120)
+            }
+            .clipShape(
+                RoundedRectangle(
+                    cornerRadius: StepINRadius.hero,
+                    style: .continuous
+                )
             )
+        }
+        .overlay {
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.28),
+                    Color.white.opacity(0.05),
+                    .clear
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .clipShape(
+                RoundedRectangle(
+                    cornerRadius: StepINRadius.hero,
+                    style: .continuous
+                )
+            )
+        }
+        .overlay {
+            RoundedRectangle(
+                cornerRadius: StepINRadius.hero,
+                style: .continuous
+            )
+            .strokeBorder(
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(0.45),
+                        Color.white.opacity(0.12)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                lineWidth: 1
+            )
+        }
     }
 }
 

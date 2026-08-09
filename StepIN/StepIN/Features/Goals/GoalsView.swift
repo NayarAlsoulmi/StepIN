@@ -55,7 +55,7 @@ struct GoalsView: View {
                     }
                 }
             }
-            .background(StepINColor.background)
+            .background(StepINScreenBackground())
             .navigationTitle("My Goals")
             .navigationBarTitleDisplayMode(.large)
             .confirmationDialog(

@@ -110,7 +110,7 @@ struct OnboardingView: View {
             .padding(.horizontal, StepINSpacing.screenH)
             .padding(.bottom, StepINSpacing.md)
         }
-        .background(StepINColor.background.ignoresSafeArea())
+        .background(StepINScreenBackground())
     }
 }
 

@@ -79,7 +79,7 @@ struct InterviewsView: View {
                     }
                 }
             }
-            .background(StepINColor.background)
+            .background(StepINScreenBackground())
             .navigationTitle("My Interviews")
             .navigationBarTitleDisplayMode(.large)
             .navigationDestination(for: UUID.self) { id in

@@ -30,30 +30,28 @@ struct InterviewDetailsView: View {
     }
 
     var body: some View {
-        ScreenContainer{
-            ScrollView {
-                VStack(spacing: StepINSpacing.xl) {
-                    summaryHeader
-                    
-                    Picker("Section", selection: $segment) {
-                        ForEach(Segment.allCases, id: \.self) { segment in
-                            Text(segment.rawValue).tag(segment)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    
-                    switch segment {
-                    case .analysis: analysisSection
-                    case .chat: chatSection
+        ScrollView {
+            VStack(spacing: StepINSpacing.xl) {
+                summaryHeader
+
+                Picker("Section", selection: $segment) {
+                    ForEach(Segment.allCases, id: \.self) { segment in
+                        Text(segment.rawValue).tag(segment)
                     }
                 }
-                .padding(StepINSpacing.screenH)
-                .padding(.bottom, StepINSpacing.xxl)
+                .pickerStyle(.segmented)
+
+                switch segment {
+                case .analysis: analysisSection
+                case .chat: chatSection
+                }
             }
-            .background(StepINColor.background)
-            .navigationTitle(interview.jobTitle)
-            .navigationBarTitleDisplayMode(.inline)
+            .padding(StepINSpacing.screenH)
+            .padding(.bottom, StepINSpacing.xxl)
         }
+        .background(StepINColor.background)
+        .navigationTitle(interview.jobTitle)
+        .navigationBarTitleDisplayMode(.inline)
     }
         
         // MARK: Summary

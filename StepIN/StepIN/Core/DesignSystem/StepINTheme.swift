@@ -136,6 +136,23 @@ extension View {
     func stepINShadow(_ shadow: StepINShadow = .card) -> some View {
         self.shadow(color: shadow.color, radius: shadow.radius, x: shadow.x, y: shadow.y)
     }
+
+    func glassCard() -> some View {
+        self
+            .background(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(.white.opacity(0.55))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .stroke(.white.opacity(0.8), lineWidth: 1)
+            )
+            .shadow(
+                color: .black.opacity(0.05),
+                radius: 24,
+                y: 12
+            )
+    }
 }
 
 // MARK: - Motion
