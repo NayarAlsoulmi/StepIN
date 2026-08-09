@@ -40,7 +40,7 @@ struct GoalsView: View {
                     .frame(maxHeight: .infinity)
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: StepINSpacing.md) {
+                        LazyVStack(spacing: StepINSpacing.sm) {
                             ForEach(goals) { goal in
                                 GoalCard(
                                     goal: goal,
@@ -49,12 +49,15 @@ struct GoalsView: View {
                                 )
                             }
                         }
-                        .padding(StepINSpacing.screenH)
+                        .padding(.horizontal, StepINSpacing.screenH)
+                        .padding(.top, StepINSpacing.sm)
+                        .padding(.bottom, StepINSpacing.giant)
                     }
                 }
             }
             .background(StepINColor.background)
             .navigationTitle("My Goals")
+            .navigationBarTitleDisplayMode(.large)
             .confirmationDialog(
                 "Delete this goal?",
                 isPresented: Binding(
@@ -101,32 +104,46 @@ struct GoalCard: View {
     private var isCompleted: Bool { goal.status == .completed }
 
     var body: some View {
-        StepINCard {
-            HStack(alignment: .top, spacing: StepINSpacing.md) {
+        StepINCard(padding: StepINSpacing.sm) {
+            HStack(alignment: .top, spacing: StepINSpacing.sm) {
                 Button(action: onToggle) {
                     Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 24))
+                        .font(.system(size: 22))
                         .foregroundColor(isCompleted ? StepINColor.success : StepINColor.textTertiary)
+                        .frame(width: 28, height: 28)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(isCompleted ? "Mark goal as to do" : "Mark goal as completed")
 
-                VStack(alignment: .leading, spacing: StepINSpacing.xxs) {
+                VStack(alignment: .leading, spacing: StepINSpacing.xs) {
                     Text(goal.title)
-                        .font(StepINFont.body1)
-                        .foregroundColor(StepINColor.textPrimary)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(StepINColor.textPrimary)
                         .strikethrough(isCompleted, color: StepINColor.textTertiary)
-                    Text(goal.sourceLabel)
-                        .font(StepINFont.caption)
-                        .foregroundColor(StepINColor.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(spacing: StepINSpacing.xs) {
+                        Image(systemName: "waveform")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(StepINColor.primary.opacity(0.85))
+                            .frame(width: 18, height: 18)
+                            .background(StepINColor.primarySoft.opacity(0.65), in: Circle())
+
+                        Text(goal.sourceLabel)
+                            .font(.footnote)
+                            .foregroundStyle(StepINColor.textTertiary)
+                            .lineLimit(1)
+                    }
                 }
                 .opacity(isCompleted ? 0.6 : 1)
 
-                Spacer(minLength: 0)
+                Spacer(minLength: StepINSpacing.xs)
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
+                        .font(.system(size: 15, weight: .regular))
                         .foregroundColor(StepINColor.textTertiary)
+                        .frame(width: 30, height: 30)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Delete goal")

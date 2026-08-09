@@ -57,14 +57,14 @@ struct AnalysisResult: Sendable {
     let assignedGoals: [String]
     let summary: String
 
-    /// Spec validation: scores in range, 3-5 strengths/areas, 1-3 goals.
+    /// Spec validation: scores in range, evidence-backed feedback may omit unsupported items.
     var isValid: Bool {
         let scores = [overallScore, answerQualityScore, clarityScore,
                       confidenceScore, communicationScore, interviewSkillsScore]
         return scores.allSatisfy { (0...100).contains($0) }
-            && (3...5).contains(strengths.count)
-            && (3...5).contains(areasToImprove.count)
-            && (1...3).contains(assignedGoals.count)
+            && strengths.count <= 4
+            && areasToImprove.count <= 4
+            && assignedGoals.count <= 3
     }
 }
 

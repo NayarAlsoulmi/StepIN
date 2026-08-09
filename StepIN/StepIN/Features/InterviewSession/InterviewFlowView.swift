@@ -105,7 +105,10 @@ struct InterviewFlowView: View {
         isPartial: Bool,
         completedCount: Int
     ) async {
-        let analyzingShownAt = Date.now
+        #if DEBUG
+        let analysisT0 = Date.now
+        print("[StepIN.AnalysisTiming] T0 analysis begins")
+        #endif
 
         // 1. Save the interview + transcript immediately.
         let interview = InterviewRecord(
@@ -133,8 +136,16 @@ struct InterviewFlowView: View {
         }
         try? context.save()
 
+        #if DEBUG
+        print("[StepIN.AnalysisTiming] Initial transcript persistence completed: \(Date.now.timeIntervalSince(analysisT0))s")
+        #endif
+
         // 2. Generate the analysis (retry once per spec).
-        let service = MockAnalysisService()
+        let service: InterviewAnalysisServiceProtocol = if let apiKey = OpenAIConfiguration.apiKey {
+            OpenAIAnalysisService(apiKey: apiKey)
+        } else {
+            MockAnalysisService()
+        }
         var result: AnalysisResult?
         for _ in 0..<2 {
             result = try? await service.analyze(
@@ -183,13 +194,15 @@ struct InterviewFlowView: View {
         }
         try? context.save()
 
-        // Keep the analyzing moment ~4.5s minimum so the checklist reads naturally.
-        let elapsed = Date.now.timeIntervalSince(analyzingShownAt)
-        if elapsed < 4.5 {
-            try? await Task.sleep(for: .seconds(4.5 - elapsed))
-        }
+        #if DEBUG
+        print("[StepIN.AnalysisTiming] T4 final persistence completed: \(Date.now.timeIntervalSince(analysisT0))s")
+        #endif
 
         withAnimation(StepINMotion.fade) { stage = .results(interview, goals) }
+
+        #if DEBUG
+        print("[StepIN.AnalysisTiming] T5 results navigation requested: \(Date.now.timeIntervalSince(analysisT0))s")
+        #endif
     }
 
 }

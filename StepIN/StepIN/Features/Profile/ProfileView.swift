@@ -21,13 +21,15 @@ struct ProfileView: View {
             ScrollView {
                 VStack(spacing: StepINSpacing.section) {
                     header
-                    detailsCard
+                    profileFields
                 }
-                .padding(StepINSpacing.screenH)
-                .padding(.bottom, StepINSpacing.xxl)
+                .padding(.horizontal, StepINSpacing.screenH)
+                .padding(.top, StepINSpacing.sm)
+                .padding(.bottom, StepINSpacing.giant)
             }
             .background(StepINColor.background)
             .navigationTitle("Profile")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 if profile != nil {
                     ToolbarItem(placement: .primaryAction) {
@@ -57,43 +59,38 @@ struct ProfileView: View {
             Text(fullName)
                 .font(StepINFont.h3)
                 .foregroundColor(StepINColor.textPrimary)
-            if let email = profile?.email {
-                Text(email)
-                    .font(StepINFont.body3)
-                    .foregroundColor(StepINColor.textSecondary)
-            }
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, StepINSpacing.md)
     }
 
-    private var detailsCard: some View {
+    private var profileFields: some View {
         StepINCard {
             VStack(spacing: StepINSpacing.md) {
-                detailRow("First Name", profile?.firstName ?? "—")
+                profileRow(label: "First Name", value: profile?.firstName)
                 Divider().background(StepINColor.divider)
-                detailRow("Last Name", profile?.lastName ?? "—")
+                profileRow(label: "Last Name", value: profile?.lastName)
                 Divider().background(StepINColor.divider)
-                detailRow("Email", profile?.email ?? "—")
+                profileRow(label: "Email", value: profile?.email)
             }
         }
     }
 
-    private func detailRow(_ label: String, _ value: String) -> some View {
-        HStack {
+    private func profileRow(label: String, value: String?) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: StepINSpacing.md) {
             Text(label)
                 .font(StepINFont.body3)
                 .foregroundColor(StepINColor.textSecondary)
-            Spacer()
-            Text(value)
+            Spacer(minLength: StepINSpacing.md)
+            Text(value?.nilIfBlank ?? "—")
                 .font(StepINFont.body2)
                 .foregroundColor(StepINColor.textPrimary)
+                .multilineTextAlignment(.trailing)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
     private var fullName: String {
-        guard let profile else { return "Your Profile" }
-        return [profile.firstName, profile.lastName].compactMap { $0 }.joined(separator: " ")
+        profile?.firstName.nilIfBlank ?? "Your Profile"
     }
 
     private var initials: String {
@@ -101,6 +98,13 @@ struct ProfileView: View {
         let first = profile.firstName.first.map(String.init) ?? ""
         let last = profile.lastName?.first.map(String.init) ?? ""
         return (first + last).uppercased()
+    }
+}
+
+private extension String {
+    var nilIfBlank: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 

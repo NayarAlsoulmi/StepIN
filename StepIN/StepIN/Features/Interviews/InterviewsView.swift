@@ -67,6 +67,8 @@ struct InterviewsView: View {
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
+                    .contentMargins(.top, StepINSpacing.sm, for: .scrollContent)
+                    .contentMargins(.bottom, StepINSpacing.giant, for: .scrollContent)
                     // Pull-down search: hidden until the user pulls the list,
                     // keeping the default screen clean.
                     .searchable(text: $searchText, prompt: "Job title or company")
@@ -79,6 +81,7 @@ struct InterviewsView: View {
             }
             .background(StepINColor.background)
             .navigationTitle("My Interviews")
+            .navigationBarTitleDisplayMode(.large)
             .navigationDestination(for: UUID.self) { id in
                 if let interview = completed.first(where: { $0.id == id }) {
                     InterviewDetailsView(interview: interview)

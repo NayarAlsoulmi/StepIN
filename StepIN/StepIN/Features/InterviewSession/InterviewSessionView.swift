@@ -64,6 +64,11 @@ struct InterviewSessionView: View {
                 pauseOverlay
                     .transition(.opacity)
             }
+
+            if viewModel.phase == .error {
+                realtimeErrorOverlay
+                    .transition(.opacity)
+            }
         }
         .animation(StepINMotion.fade, value: viewModel.phase)
         .onAppear { viewModel.start() }
@@ -173,6 +178,35 @@ struct InterviewSessionView: View {
                 }
                 .padding(.horizontal, StepINSpacing.xxl)
             }
+        }
+    }
+
+    private var realtimeErrorOverlay: some View {
+        ZStack {
+            StepINColor.background.opacity(0.97).ignoresSafeArea()
+
+            VStack(spacing: StepINSpacing.lg) {
+                RobotView(state: .idle, presentation: .compact)
+                Text("Interview Connection Issue")
+                    .font(StepINFont.h2)
+                    .foregroundColor(StepINColor.textPrimary)
+                    .multilineTextAlignment(.center)
+
+                if let message = viewModel.sessionErrorMessage {
+                    Text(message)
+                        .font(StepINFont.body3)
+                        .foregroundColor(StepINColor.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: 520)
+                }
+
+                StepINPrimaryButton(title: "Try Again") {
+                    viewModel.retryAfterRealtimeError()
+                }
+                .padding(.horizontal, StepINSpacing.xxl)
+            }
+            .padding(.horizontal, StepINSpacing.screenH)
         }
     }
 }

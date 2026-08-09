@@ -11,12 +11,26 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0859CB4F3026475500717842 /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 		088E9CA6301E44A200DD2199 /* StepIN.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StepIN.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		0859CB55302649C000717842 /* Exceptions for "StepIN" folder in "StepIN" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Secrets.xcconfig,
+			);
+			target = 088E9CA5301E44A200DD2199 /* StepIN */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		088E9CA8301E44A200DD2199 /* StepIN */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				0859CB55302649C000717842 /* Exceptions for "StepIN" folder in "StepIN" target */,
+			);
 			path = StepIN;
 			sourceTree = "<group>";
 		};
@@ -39,6 +53,7 @@
 			children = (
 				088E9CA8301E44A200DD2199 /* StepIN */,
 				088E9CA7301E44A200DD2199 /* Products */,
+				0859CB4F3026475500717842 /* Secrets.xcconfig */,
 			);
 			sourceTree = "<group>";
 		};
@@ -136,6 +151,8 @@
 /* Begin XCBuildConfiguration section */
 		088E9CAF301E44A200DD2199 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 088E9CA8301E44A200DD2199 /* StepIN */;
+			baseConfigurationReferenceRelativePath = Secrets.xcconfig;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -199,6 +216,8 @@
 		};
 		088E9CB0301E44A200DD2199 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 088E9CA8301E44A200DD2199 /* StepIN */;
+			baseConfigurationReferenceRelativePath = Secrets.xcconfig;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -255,6 +274,8 @@
 		};
 		088E9CB2301E44A200DD2199 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 088E9CA8301E44A200DD2199 /* StepIN */;
+			baseConfigurationReferenceRelativePath = Secrets.xcconfig;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -262,6 +283,9 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "StepIN uses the microphone to conduct your AI interview and analyze your spoken responses.";
+				INFOPLIST_KEY_OPENAI_API_KEY = "$(OPENAI_API_KEY)";
+				INFOPLIST_KEY_OpenAIAPIKey = "$(OPENAI_API_KEY)";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -286,6 +310,8 @@
 		};
 		088E9CB3301E44A200DD2199 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 088E9CA8301E44A200DD2199 /* StepIN */;
+			baseConfigurationReferenceRelativePath = Secrets.xcconfig;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -293,6 +319,9 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "StepIN uses the microphone to conduct your AI interview and analyze your spoken responses.";
+				INFOPLIST_KEY_OPENAI_API_KEY = "$(OPENAI_API_KEY)";
+				INFOPLIST_KEY_OpenAIAPIKey = "$(OPENAI_API_KEY)";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

@@ -21,12 +21,6 @@ import SwiftUI
 import UIKit
 import Observation
 
-// True when the process is the Xcode Preview host. All animation tasks,
-// timers, and frame loads are skipped in preview to prevent rapid
-// re-evaluation of #Preview closures from recreating ModelContainers
-// and triggering DynamicContainer layout recursion.
-private let isXcodePreview = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
-
 // MARK: - RobertAnimationState
 
 enum RobertAnimationState: String, CaseIterable {
@@ -391,13 +385,9 @@ struct RobertAnimationPlayer: View {
                 .scaledToFit()
                 .frame(width: size, height: size)
         }
-        // All async work is skipped in Preview to keep Canvas stable.
-        .onAppear { guard !isXcodePreview else { return }; beginPlayback() }
-        .onChange(of: state) { _, _ in guard !isXcodePreview else { return }; beginPlayback() }
-        .onDisappear {
-            guard !isXcodePreview else { return }
-            playback.cancel()
-        }
+        .onAppear { beginPlayback() }
+        .onChange(of: state) { _, _ in beginPlayback() }
+        .onDisappear { playback.cancel() }
         .accessibilityElement()
         .accessibilityLabel(state.accessibilityLabel)
     }

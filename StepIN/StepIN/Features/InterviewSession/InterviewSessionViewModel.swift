@@ -23,6 +23,7 @@ final class InterviewSessionViewModel {
         case processingAnswer
         case paused
         case finished
+        case error
     }
 
     // MARK: Observable state
@@ -30,6 +31,7 @@ final class InterviewSessionViewModel {
     private(set) var phase: Phase = .idle
     private(set) var currentQuestionText: String = ""
     private(set) var showFinishAnswer = false
+    private(set) var sessionErrorMessage: String?
     private(set) var transcript: [TranscriptEntry] = []
     /// Set when the interview finishes (naturally or ended early).
     private(set) var didFinish = false
@@ -43,6 +45,7 @@ final class InterviewSessionViewModel {
         case .processingAnswer: .thinking
         case .paused: .paused
         case .finished: .analyzing
+        case .error: .idle
         }
     }
 
@@ -52,15 +55,18 @@ final class InterviewSessionViewModel {
         case .candidateListening: "Listening"
         case .processingAnswer: "Thinking"
         case .paused: "Paused"
+        case .error: "Connection Issue"
         default: ""
         }
     }
 
-    var completedQuestionCount: Int { engine.askedQuestionCount }
+    var completedQuestionCount: Int { realtimeCompletedQuestionCount ?? engine.askedQuestionCount }
 
     // MARK: Private
 
     private let engine: MockInterviewEngine
+    private var realtimeSession: OpenAIRealtimeInterviewSession?
+    private var realtimeCompletedQuestionCount: Int?
     private let configuration: InterviewConfiguration
     private var phaseTask: Task<Void, Never>?
     /// The phase to re-enter after a pause.
@@ -77,12 +83,45 @@ final class InterviewSessionViewModel {
         self.configuration = configuration
         self.engine = engine ?? MockInterviewEngine()
         self.onFinished = onFinished
+
+        if engine == nil, let apiKey = OpenAIConfiguration.apiKey {
+            self.realtimeSession = makeRealtimeSession(apiKey: apiKey)
+        }
+    }
+
+    private func makeRealtimeSession(apiKey: String) -> OpenAIRealtimeInterviewSession {
+        OpenAIRealtimeInterviewSession(
+            configuration: configuration,
+            apiKey: apiKey,
+            onStateChange: { [weak self] state in self?.applyRealtimeState(state) },
+            onInterviewerText: { [weak self] text in self?.currentQuestionText = text },
+            onTranscriptEntry: { [weak self] entry in self?.appendRealtimeTranscript(entry) },
+            onCompleted: { [weak self] isPartial, completedCount in
+                self?.finishRealtime(isPartial: isPartial, completedCount: completedCount)
+            },
+            onError: { [weak self] error in
+                self?.handleRealtimeError(error)
+            }
+        )
     }
 
     // MARK: Lifecycle
 
     func start() {
         guard phase == .idle else { return }
+        sessionErrorMessage = nil
+
+        if let realtimeSession {
+            phaseTask = Task { [weak self] in
+                do {
+                    try await realtimeSession.start()
+                } catch {
+                    self?.handleRealtimeError(RealtimeSessionError(message: error.localizedDescription, type: "startup", code: nil, param: nil))
+                }
+            }
+            return
+        }
+
         phaseTask = Task { [weak self] in
             guard let self else { return }
             do {
@@ -97,7 +136,13 @@ final class InterviewSessionViewModel {
     /// Pause: stop all activity, keep context. Resume continues the same
     /// logical point — completed questions are never repeated.
     func pause() {
-        guard phase != .paused, phase != .finished else { return }
+        guard phase != .paused, phase != .finished, phase != .error else { return }
+        if let realtimeSession {
+            realtimeSession.pause()
+            showFinishAnswer = false
+            return
+        }
+
         resumePhase = (phase == .processingAnswer) ? .processingAnswer : phase
         phaseTask?.cancel()
         phaseTask = nil
@@ -107,6 +152,11 @@ final class InterviewSessionViewModel {
 
     func resume() {
         guard phase == .paused else { return }
+        if let realtimeSession {
+            realtimeSession.resume()
+            return
+        }
+
         switch resumePhase {
         case .interviewerSpeaking:
             // Re-speak the current question from the beginning.
@@ -123,14 +173,31 @@ final class InterviewSessionViewModel {
         }
     }
 
+    func retryAfterRealtimeError() {
+        guard phase == .error else { return }
+        realtimeSession?.stop()
+        guard let apiKey = OpenAIConfiguration.apiKey else { return }
+        realtimeSession = makeRealtimeSession(apiKey: apiKey)
+        phase = .idle
+        start()
+    }
+
     /// User confirmed early end.
     func endInterview() {
+        if let realtimeSession {
+            realtimeSession.endEarly()
+            return
+        }
         finish(early: true)
     }
 
     /// Fallback button pressed while listening.
     func finishAnswerPressed() {
         guard phase == .candidateListening else { return }
+        if let realtimeSession {
+            realtimeSession.finishCurrentAnswer()
+            return
+        }
         phaseTask?.cancel()
         phaseTask = Task { [weak self] in await self?.captureAnswerAndProcess() }
     }
@@ -197,16 +264,66 @@ final class InterviewSessionViewModel {
         }
     }
 
-    private func finish(early: Bool) {
+    private func applyRealtimeState(_ state: OpenAIRealtimeInterviewSession.RuntimeState) {
+        switch state {
+        case .preparing, .thinking:
+            phase = .processingAnswer
+        case .speaking:
+            phase = .interviewerSpeaking
+            showFinishAnswer = false
+        case .listening:
+            phase = .candidateListening
+            showFinishAnswer = true
+        case .paused:
+            phase = .paused
+            showFinishAnswer = false
+        case .completed:
+            phase = .finished
+        case .error:
+            phase = .error
+            showFinishAnswer = false
+        }
+    }
+
+    private func handleRealtimeError(_ error: RealtimeSessionError) {
+        guard !didFinish else { return }
+        phaseTask?.cancel()
+        phaseTask = nil
+        sessionErrorMessage = error.displayMessage
+        showFinishAnswer = false
+        phase = .error
+    }
+
+    private func appendRealtimeTranscript(_ entry: TranscriptEntry) {
+        guard transcript.last?.speaker != entry.speaker || transcript.last?.text != entry.text else { return }
+        transcript.append(entry)
+    }
+
+    private func finishRealtime(isPartial: Bool, completedCount: Int) {
         guard !didFinish else { return }
         phaseTask?.cancel()
         phaseTask = nil
         didFinish = true
+        endedEarly = isPartial
+        sessionErrorMessage = nil
+        realtimeCompletedQuestionCount = completedCount
+        phase = .finished
+        onFinished(transcript, isPartial, completedCount)
+    }
+
+    private func finish(early: Bool) {
+        guard !didFinish else { return }
+        phaseTask?.cancel()
+        phaseTask = nil
+        realtimeSession?.stop()
+        didFinish = true
         endedEarly = early
+        sessionErrorMessage = nil
         phase = .finished
 
         // Partial when ended before all selected questions were completed.
-        let isPartial = early && engine.askedQuestionCount < configuration.questionCount.rawValue
-        onFinished(transcript, isPartial, engine.askedQuestionCount)
+        let completedCount = realtimeCompletedQuestionCount ?? engine.askedQuestionCount
+        let isPartial = early && completedCount < configuration.questionCount.rawValue
+        onFinished(transcript, isPartial, completedCount)
     }
 }

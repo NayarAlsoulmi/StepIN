@@ -62,11 +62,11 @@ final class MockAnalysisService: InterviewAnalysisServiceProtocol {
         }
 
         let goalPool = [
-            "Practice answering behavioral questions using specific examples.",
-            "Practice concise introductions.",
-            "Reduce filler words during interviews.",
-            "Prepare stronger examples for teamwork questions.",
-            "Improve confidence when discussing technical projects."
+            "Make answers more concise: Practice leading with the main point before adding supporting detail.",
+            "Clarify project impact: Include specific outcomes or evidence of what changed because of your work.",
+            "Explain technical decisions clearly: Practice describing why you chose an approach and what trade-offs you considered.",
+            "Strengthen teamwork examples: Practice explaining your role, actions, and outcome in collaborative work.",
+            "Improve project confidence: Practice discussing your technical projects with steady pacing and clear ownership."
         ]
         let goals = Array(goalPool.shuffled().prefix(Int.random(in: 2...3)))
 

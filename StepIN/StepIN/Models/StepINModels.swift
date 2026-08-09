@@ -272,11 +272,7 @@ final class AssignedGoal {
     /// everywhere a goal shows where it came from — keep the format
     /// consistent across Home and My Goals.
     var sourceLabel: String {
-        if sourceJobTitle.localizedCaseInsensitiveContains("interview") {
-            "From \(sourceJobTitle)"
-        } else {
-            "From \(sourceJobTitle) Interview"
-        }
+        "From \(sourceInterviewTitle)"
     }
 }
 

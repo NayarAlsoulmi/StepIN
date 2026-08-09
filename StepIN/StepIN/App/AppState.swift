@@ -52,6 +52,13 @@ final class AppState {
         self.hasProfile = hasProfile
     }
 
+    /// Preview-only: bypasses UserDefaults so Canvas always starts from a known state.
+    /// Production code uses the single-argument init above.
+    init(hasProfile: Bool, hasCompletedOnboarding: Bool) {
+        self.hasCompletedOnboarding = hasCompletedOnboarding
+        self.hasProfile = hasProfile
+    }
+
     func completeOnboarding() {
         hasCompletedOnboarding = true
         UserDefaults.standard.set(true, forKey: onboardingKey)
