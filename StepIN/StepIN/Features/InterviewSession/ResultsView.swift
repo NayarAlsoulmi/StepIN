@@ -86,7 +86,7 @@ struct ResultsView: View {
             .padding(StepINSpacing.screenH)
             .padding(.bottom, StepINSpacing.xxl)
         }
-        .background(StepINColor.background)
+        .background(StepINScreenBackground())
         .task { await runGoodbyeSequence() }
     }
 

@@ -139,7 +139,7 @@ struct InterviewSetupView: View {
                 .padding(StepINSpacing.screenH)
                 .padding(.bottom, StepINSpacing.xxl)
             }
-            .background(StepINColor.background)
+            .background(StepINScreenBackground())
             .navigationTitle("New Interview")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

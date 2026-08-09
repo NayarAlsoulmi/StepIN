@@ -53,7 +53,7 @@ struct GoalsView: View {
                     }
                 }
             }
-            .background(StepINColor.background)
+            .background(StepINScreenBackground())
             .navigationTitle("My Goals")
             .confirmationDialog(
                 "Delete this goal?",
@@ -103,10 +103,13 @@ struct GoalCard: View {
     var body: some View {
         StepINCard {
             HStack(alignment: .top, spacing: StepINSpacing.md) {
+                
                 Button(action: onToggle) {
                     Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
                         .font(.system(size: 24))
                         .foregroundColor(isCompleted ? StepINColor.success : StepINColor.textTertiary)
+    
+
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(isCompleted ? "Mark goal as to do" : "Mark goal as completed")

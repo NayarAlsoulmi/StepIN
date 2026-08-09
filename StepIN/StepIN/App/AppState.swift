@@ -13,14 +13,12 @@ enum StepINTab: Hashable, CaseIterable {
     case home
     case interviews
     case goals
-    case profile
 
     var title: String {
         switch self {
         case .home: "Home"
         case .interviews: "Interviews"
         case .goals: "Goals"
-        case .profile: "Profile"
         }
     }
 
@@ -29,7 +27,6 @@ enum StepINTab: Hashable, CaseIterable {
         case .home: "house.fill"
         case .interviews: "bubble.left.and.bubble.right.fill"
         case .goals: "checkmark.circle.fill"
-        case .profile: "person.crop.circle.fill"
         }
     }
 }

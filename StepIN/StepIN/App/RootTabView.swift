@@ -2,15 +2,25 @@
 //  RootTabView.swift
 //  StepIN
 //
-//  Native tab shell for the four primary sections. The immersive interview
-//  flow is presented modally (later phase) and is intentionally not a tab.
+//  Native tab shell for the primary sections. The immersive interview
+//  flow is presented modally and is intentionally not a tab.
 //
 
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct RootTabView: View {
     @Environment(AppState.self) private var appState
+
+    init() {
+        UITabBar.appearance().unselectedItemTintColor = UIColor(
+            red: 0x4A / 255,
+            green: 0x4A / 255,
+            blue: 0x4A / 255,
+            alpha: 1
+        )
+    }
 
     var body: some View {
         @Bindable var appState = appState
@@ -27,10 +37,6 @@ struct RootTabView: View {
             GoalsView()
                 .tabItem { Label(StepINTab.goals.title, systemImage: StepINTab.goals.systemImage) }
                 .tag(StepINTab.goals)
-
-            ProfileView()
-                .tabItem { Label(StepINTab.profile.title, systemImage: StepINTab.profile.systemImage) }
-                .tag(StepINTab.profile)
         }
         .tint(StepINColor.primary)
     }

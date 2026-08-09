@@ -43,7 +43,7 @@ struct OnboardingView: View {
 
     private var isLastPage: Bool { selection == pages.count - 1 }
 
-    @ViewBuilder
+   /* @ViewBuilder
     private func onboardingRobot(index: Int, page: OnboardingPage) -> some View {
         switch index {
         case 0:
@@ -60,6 +60,39 @@ struct OnboardingView: View {
         default:
             RobotView(state: page.robotState, presentation: .homeHero)
         }
+    }*/
+    @ViewBuilder
+    private func onboardingIllustration(index: Int, page: OnboardingPage) -> some View {
+        switch index {
+
+        case 0:
+            RobotView(
+                state: page.robotState,
+                robertState: page0OneShot,
+                presentation: .homeHero,
+                onOneShotComplete: { page0OneShot = nil }
+                
+            )
+
+        case 1:
+            Image("onboarding2")
+                .resizable()
+                .scaledToFit()
+                .frame(height: 320)
+                .shadow(color: .black.opacity(0.08), radius: 20, y: 10)
+
+        case 2:
+            Image("onboarding3")
+                .resizable()
+                .scaledToFit()
+                .frame(height: 320)
+                .shadow(color: .black.opacity(0.08), radius: 20, y: 10)
+
+        
+
+        default:
+            EmptyView()
+        }
     }
 
     var body: some View {
@@ -68,7 +101,8 @@ struct OnboardingView: View {
                 ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
                     VStack(spacing: StepINSpacing.xl) {
                         Spacer()
-                        onboardingRobot(index: index, page: page)
+                        //onboardingRobot(index: index, page: page)
+                        onboardingIllustration(index: index, page: page)
                         VStack(spacing: StepINSpacing.sm) {
                             Text(page.title)
                                 .font(StepINFont.h1)
@@ -100,7 +134,7 @@ struct OnboardingView: View {
             .padding(.horizontal, StepINSpacing.screenH)
             .padding(.bottom, StepINSpacing.md)
         }
-        .background(StepINColor.background.ignoresSafeArea())
+        .background(StepINScreenBackground())
     }
 }
 

@@ -101,100 +101,153 @@ struct StepINPressStyle: ButtonStyle {
 
 // MARK: - Card
 
+
 struct StepINCard<Content: View>: View {
     var padding: CGFloat = StepINSpacing.md
-    var background: Color = StepINColor.surface
+    var background: Color = Color(hex: 0xFFFFFF)
+    var tintOpacity: Double = 0.12
     @ViewBuilder var content: Content
-
+    
     var body: some View {
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(background)
-            .clipShape(RoundedRectangle(cornerRadius: StepINRadius.large, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: StepINRadius.large, style: .continuous)
-                    .stroke(StepINColor.border, lineWidth: 1)
+            .clipShape(
+                RoundedRectangle(
+                    cornerRadius: StepINRadius.large,
+                    style: .continuous
+                )
             )
-            .stepINShadow(.subtle)
+            .glassEffect(
+                .regular.tint(Color.white.opacity(0.01)),
+                in: RoundedRectangle(
+                    cornerRadius: StepINRadius.large,
+                    style: .continuous
+                )
+            )
     }
 }
 
-// MARK: - Section Header
-
-struct StepINSectionHeader: View {
-    let title: String
-    var actionTitle: String? = nil
-    var action: (() -> Void)? = nil
-
-    var body: some View {
-        HStack {
-            Text(title)
-                .font(StepINFont.h3)
-                .foregroundColor(StepINColor.textPrimary)
-            Spacer()
-            if let actionTitle, let action {
-                Button(actionTitle, action: action)
-                    .font(StepINFont.body3)
-                    .foregroundColor(StepINColor.primary)
+    
+    // MARK: - Section Header
+    
+    struct StepINSectionHeader: View {
+        let title: String
+        var actionTitle: String? = nil
+        var action: (() -> Void)? = nil
+        
+        var body: some View {
+            HStack {
+                Text(title)
+                    .font(StepINFont.h3)
+                    .foregroundColor(StepINColor.textPrimary)
+                Spacer()
+                if let actionTitle, let action {
+                    Button(actionTitle, action: action)
+                        .font(StepINFont.body3)
+                        .foregroundColor(StepINColor.primary)
+                }
             }
         }
     }
-}
-
-// MARK: - Empty State
-
-struct StepINEmptyState: View {
-    var robotState: RobotState = .idle
-    let title: String
-    let message: String
-    var actionTitle: String? = nil
-    var action: (() -> Void)? = nil
-
-    var body: some View {
-        VStack(spacing: StepINSpacing.md) {
-            RobotView(state: robotState, presentation: .emptyState)
-            Text(title)
-                .font(StepINFont.h3)
-                .foregroundColor(StepINColor.textPrimary)
-                .multilineTextAlignment(.center)
-            Text(message)
-                .font(StepINFont.bodyRegular)
-                .foregroundColor(StepINColor.textSecondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            if let actionTitle, let action {
-                StepINPrimaryButton(title: actionTitle, action: action)
-                    .padding(.top, StepINSpacing.xs)
-                    .frame(maxWidth: 280)
+    
+    // MARK: - Empty State
+    
+    struct StepINEmptyState: View {
+        var robotState: RobotState = .idle
+        let title: String
+        let message: String
+        var actionTitle: String? = nil
+        var action: (() -> Void)? = nil
+        
+        var body: some View {
+            VStack(spacing: StepINSpacing.md) {
+                RobotView(state: robotState, presentation: .emptyState)
+                Text(title)
+                    .font(StepINFont.h3)
+                    .foregroundColor(StepINColor.textPrimary)
+                    .multilineTextAlignment(.center)
+                Text(message)
+                    .font(StepINFont.bodyRegular)
+                    .foregroundColor(StepINColor.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let actionTitle, let action {
+                    StepINPrimaryButton(title: actionTitle, action: action)
+                        .padding(.top, StepINSpacing.xs)
+                        .frame(maxWidth: 280)
+                }
             }
+            .padding(StepINSpacing.xl)
+            .frame(maxWidth: .infinity)
         }
-        .padding(StepINSpacing.xl)
-        .frame(maxWidth: .infinity)
     }
-}
-
-// MARK: - Loading View
-
-struct StepINLoadingView: View {
-    let message: String
-
-    var body: some View {
-        VStack(spacing: StepINSpacing.md) {
-            RobotView(state: .thinking, presentation: .loading)
-            Text(message)
-                .font(StepINFont.body1)
-                .foregroundColor(StepINColor.textSecondary)
-                .multilineTextAlignment(.center)
+    
+    // MARK: - Loading View
+    
+    struct StepINLoadingView: View {
+        let message: String
+        
+        var body: some View {
+            VStack(spacing: StepINSpacing.md) {
+                RobotView(state: .thinking, presentation: .loading)
+                Text(message)
+                    .font(StepINFont.body1)
+                    .foregroundColor(StepINColor.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(StepINSpacing.xl)
         }
-        .padding(StepINSpacing.xl)
     }
-}
-
-// MARK: - Screen background
-
+    
+    // MARK: - Screen background
+    
 struct StepINScreenBackground: View {
     var body: some View {
-        StepINColor.background.ignoresSafeArea()
+        ZStack {
+            
+            // Background
+            Color(hex: 0xFDFDFE)
+                .ignoresSafeArea()
+            
+            // Top Left
+            Ellipse()
+                .fill(Color(hex: 0xF6E3D8))
+                .frame(width: 346, height: 204)
+                .blur(radius: 80)
+                .position(x: -47 + 173, y: -16 + 102)
+            
+            // Top Right
+            Ellipse()
+                .fill(Color(hex: 0xE8E3E9))
+                .frame(width: 346, height: 204)
+                .blur(radius: 80)
+                .position(x: 162 + 173, y: -19 + 102)
+            
+            // Center
+            Ellipse()
+                .fill(Color(hex: 0xE3D7E9))
+                .frame(width: 346, height: 204)
+                .blur(radius: 105)
+                .position(x: 28 + 173, y: 335 + 102)
+            
+            // Bottom Right
+            Ellipse()
+                .fill(Color(hex: 0xF4D6E8))
+                .opacity(0.5)
+                .frame(width: 346, height: 204)
+                .blur(radius: 90)
+                .position(x: 195 + 173, y: 670 + 102)
+            
+            // Bottom Left
+            Ellipse()
+                .fill(Color(hex: 0xD9C7F8))
+                .opacity(0.55)
+                .frame(width: 346, height: 204)
+                .blur(radius: 90)
+                .position(x: -68 + 173, y: 636 + 102)
+        }
+        .frame(width: 402, height: 874)
     }
 }
+

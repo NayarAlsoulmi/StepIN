@@ -24,7 +24,7 @@ struct InterviewSessionView: View {
 
     var body: some View {
         ZStack {
-            StepINColor.background.ignoresSafeArea()
+            StepINScreenBackground()
 
             VStack(spacing: 0) {
                 topBar
@@ -155,7 +155,7 @@ struct InterviewSessionView: View {
 
     private var pauseOverlay: some View {
         ZStack {
-            StepINColor.background.opacity(0.97).ignoresSafeArea()
+            StepINScreenBackground()
 
             VStack(spacing: StepINSpacing.xl) {
                 RobotView(state: .paused, presentation: .compact)

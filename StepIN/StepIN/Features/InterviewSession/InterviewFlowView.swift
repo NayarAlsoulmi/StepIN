@@ -222,6 +222,6 @@ private struct AnalysisFailedView: View {
                 .padding(.horizontal, StepINSpacing.screenH)
                 .padding(.bottom, StepINSpacing.xl)
         }
-        .background(StepINColor.background.ignoresSafeArea())
+        .background(StepINScreenBackground())
     }
 }

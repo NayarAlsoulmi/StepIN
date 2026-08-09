@@ -10,36 +10,47 @@ import SwiftUI
 import SwiftData
 
 struct ProfileView: View {
+    var embedsInNavigationStack = true
+
     @Query private var profiles: [UserProfile]
 
     @State private var showEditProfile = false
 
     private var profile: UserProfile? { profiles.first }
 
+    @ViewBuilder
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: StepINSpacing.section) {
-                    header
-                    detailsCard
-                }
-                .padding(StepINSpacing.screenH)
-                .padding(.bottom, StepINSpacing.xxl)
+        if embedsInNavigationStack {
+            NavigationStack { profileContent }
+        } else {
+            profileContent
+        }
+    }
+
+    private var profileContent: some View {
+        ScrollView {
+            VStack(spacing: StepINSpacing.section) {
+                header
+                detailsCard
             }
-            .background(StepINColor.background)
-            .navigationTitle("Profile")
-            .toolbar {
-                if profile != nil {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button("Edit") { showEditProfile = true }
-                            .fontWeight(.semibold)
-                    }
+            .padding(StepINSpacing.screenH)
+            .padding(.bottom, StepINSpacing.xxl)
+        }
+        .background(StepINScreenBackground())
+        .navigationTitle("Profile")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbar {
+            if profile != nil {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Edit") { showEditProfile = true }
+                        .fontWeight(.semibold)
                 }
             }
-            .sheet(isPresented: $showEditProfile) {
-                if let profile {
-                    EditProfileView(profile: profile)
-                }
+        }
+        .sheet(isPresented: $showEditProfile) {
+            if let profile {
+                EditProfileView(profile: profile)
             }
         }
     }

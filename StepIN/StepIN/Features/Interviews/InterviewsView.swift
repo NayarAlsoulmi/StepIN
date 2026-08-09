@@ -77,7 +77,7 @@ struct InterviewsView: View {
                     }
                 }
             }
-            .background(StepINColor.background)
+            .background(StepINScreenBackground())
             .navigationTitle("My Interviews")
             .navigationDestination(for: UUID.self) { id in
                 if let interview = completed.first(where: { $0.id == id }) {

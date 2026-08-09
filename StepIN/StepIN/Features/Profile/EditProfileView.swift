@@ -44,7 +44,7 @@ struct EditProfileView: View {
                 }
                 .padding(StepINSpacing.screenH)
             }
-            .background(StepINColor.background)
+            .background(StepINScreenBackground())
             .navigationTitle("Edit Profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

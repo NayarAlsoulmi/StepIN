@@ -47,8 +47,34 @@ struct WaveformView: View {
         .accessibilityHidden(true)
     }
 
-    private var barColor: Color {
+ /*   private var barColor: Color {
         mode == .aiSpeaking ? StepINColor.primary : StepINColor.primaryLight
+    }*/
+    private var barColor: LinearGradient {
+
+        switch mode {
+
+        case .aiSpeaking:
+            return LinearGradient(
+                stops: [
+                    .init(color: Color(hex: 0xE2D1EC), location: 0),
+                    .init(color: Color(hex: 0xAE89C5), location: 0.51),
+                    .init(color: Color(hex: 0xE2D1EC), location: 1)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+        case .candidateListening:
+            return LinearGradient(
+                colors: [
+                    Color(hex: 0xF4EAF9),
+                    Color(hex: 0xD9C7F8)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
     }
 
     private func barHeight(_ index: Int) -> CGFloat {

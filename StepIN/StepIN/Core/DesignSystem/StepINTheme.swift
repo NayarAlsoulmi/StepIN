@@ -149,3 +149,25 @@ enum StepINMotion {
     static let springSnappy = Animation.spring(response: 0.28, dampingFraction: 0.8)
     static let fade = Animation.easeInOut(duration: standard)
 }
+
+//glass Card
+
+extension View {
+
+    func glassCard() -> some View {
+        self
+            .background(
+                RoundedRectangle(cornerRadius: 28)
+                    .fill(.white.opacity(0.55))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 28)
+                    .stroke(.white.opacity(0.8), lineWidth: 1)
+            )
+            .shadow(
+                color: .black.opacity(0.05),
+                radius: 24,
+                y: 12
+            )
+    }
+}
