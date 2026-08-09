@@ -33,6 +33,7 @@ final class InterviewSessionViewModel {
     private(set) var showFinishAnswer = false
     private(set) var sessionErrorMessage: String?
     private(set) var transcript: [TranscriptEntry] = []
+    private(set) var robertOneShot: RobertAnimationState?
     /// Set when the interview finishes (naturally or ended early).
     private(set) var didFinish = false
     private(set) var endedEarly = false
@@ -202,6 +203,10 @@ final class InterviewSessionViewModel {
         phaseTask = Task { [weak self] in await self?.captureAnswerAndProcess() }
     }
 
+    func robertOneShotCompleted() {
+        robertOneShot = nil
+    }
+
     // MARK: State machine
 
     /// Interviewer speaks the question, then listening begins.
@@ -268,20 +273,34 @@ final class InterviewSessionViewModel {
         switch state {
         case .preparing, .thinking:
             phase = .processingAnswer
+            robertOneShot = nil
+        case .introductionSpeaking:
+            phase = .interviewerSpeaking
+            showFinishAnswer = false
+            robertOneShot = .wave
+        case .openingBeat:
+            phase = .idle
+            showFinishAnswer = false
+            robertOneShot = nil
         case .speaking:
             phase = .interviewerSpeaking
             showFinishAnswer = false
+            robertOneShot = nil
         case .listening:
             phase = .candidateListening
             showFinishAnswer = true
+            robertOneShot = nil
         case .paused:
             phase = .paused
             showFinishAnswer = false
+            robertOneShot = nil
         case .completed:
             phase = .finished
+            robertOneShot = nil
         case .error:
             phase = .error
             showFinishAnswer = false
+            robertOneShot = nil
         }
     }
 

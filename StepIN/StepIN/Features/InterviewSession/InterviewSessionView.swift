@@ -33,7 +33,12 @@ struct InterviewSessionView: View {
 
                 // Center: robot + question + state label.
                 VStack(spacing: StepINSpacing.xl) {
-                    RobotView(state: viewModel.robotState, presentation: .interview)
+                    RobotView(
+                        state: viewModel.robotState,
+                        robertState: viewModel.robertOneShot,
+                        presentation: .interview,
+                        onOneShotComplete: viewModel.robertOneShotCompleted
+                    )
 
                     Text(viewModel.currentQuestionText)
                         .font(StepINFont.h2)

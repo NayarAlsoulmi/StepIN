@@ -13,6 +13,8 @@ import Foundation
 final class OpenAIRealtimeInterviewSession {
     enum RuntimeState: Equatable {
         case preparing
+        case introductionSpeaking
+        case openingBeat
         case listening
         case speaking
         case thinking
@@ -21,7 +23,26 @@ final class OpenAIRealtimeInterviewSession {
         case error
     }
 
+    private enum InterviewLanguage: String, Equatable {
+        case english = "English"
+        case arabic = "Arabic"
+    }
+
+    private enum AssistantTurnPurpose: Equatable {
+        case introduction
+        case interview
+        case closing
+    }
+
     let finalPhrase = "Thank you. That concludes our interview."
+    private var introductionText: String {
+        let firstName = configuration.candidateFirstName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !firstName.isEmpty {
+            return "Hello, \(firstName). I'm your AI Interviewer, and I'll be conducting your interview today."
+        }
+
+        return "Hello, I'm your AI Interviewer, and I'll be conducting your interview today."
+    }
 
     private let configuration: InterviewConfiguration
     private let apiKey: String
@@ -30,7 +51,7 @@ final class OpenAIRealtimeInterviewSession {
     private let onTranscriptEntry: (TranscriptEntry) -> Void
     private let onCompleted: (_ isPartial: Bool, _ completedQuestionCount: Int) -> Void
     private let onError: (RealtimeSessionError) -> Void
-    private let primaryInterviewLanguage = "English"
+    private var primaryInterviewLanguage: InterviewLanguage = .english
 
     private var webSocketTask: URLSessionWebSocketTask?
     private var receiveTask: Task<Void, Never>?
@@ -51,13 +72,18 @@ final class OpenAIRealtimeInterviewSession {
     private var playbackGeneration = 0
     private var shouldCompleteAfterAssistantPlayback = false
     private var candidateCompletionTask: Task<Void, Never>?
+    private var openingQuestionTask: Task<Void, Never>?
     private let candidateTurnCompletionGrace: Duration = .seconds(2.0)
     private let semanticallyCompleteTurnDelay: Duration = .milliseconds(700)
     private let defaultTurnCompletionDelay: Duration = .milliseconds(1200)
+    private let openingQuestionBeat: Duration = .milliseconds(550)
     private var uploadedCandidateAudioDurationMs: Double = 0
     private var candidateResponseInFlight = false
     private var serverVADStoppedCurrentTurn = false
     private let minimumCommitAudioDurationMs: Double = 100
+    private var hasDeliveredIntroduction = false
+    private var currentAssistantTurnPurpose: AssistantTurnPurpose = .interview
+    private var didStartIntroductionAudio = false
 
     init(
         configuration: InterviewConfiguration,
@@ -125,6 +151,8 @@ final class OpenAIRealtimeInterviewSession {
     func stop() {
         candidateCompletionTask?.cancel()
         candidateCompletionTask = nil
+        openingQuestionTask?.cancel()
+        openingQuestionTask = nil
         receiveTask?.cancel()
         receiveTask = nil
         audioEngine.stop()
@@ -136,6 +164,9 @@ final class OpenAIRealtimeInterviewSession {
         uploadedCandidateAudioDurationMs = 0
         candidateResponseInFlight = false
         serverVADStoppedCurrentTurn = false
+        hasDeliveredIntroduction = false
+        currentAssistantTurnPurpose = .interview
+        didStartIntroductionAudio = false
         playerNode.stop()
         playbackEngine.stop()
         webSocketTask?.cancel(with: .goingAway, reason: nil)
@@ -161,7 +192,7 @@ final class OpenAIRealtimeInterviewSession {
     }
 
     private func sendSessionUpdate() async throws {
-        let prompt = InterviewSystemPrompt.make(for: configuration, primaryInterviewLanguage: primaryInterviewLanguage)
+        let prompt = InterviewSystemPrompt.make(for: configuration, primaryInterviewLanguage: primaryInterviewLanguage.rawValue)
         let event: [String: Any] = [
             "type": "session.update",
             "session": [
@@ -193,11 +224,12 @@ final class OpenAIRealtimeInterviewSession {
     }
 
     private func requestOpeningTurn() async throws {
-        beginAssistantAudioTurn()
+        beginAssistantAudioTurn(purpose: .introduction)
+        didStartIntroductionAudio = false
         try await sendEvent([
             "type": "response.create",
             "response": [
-                "instructions": "Begin the interview now. Use the required opening sentence, then ask the warm-up question exactly."
+                "instructions": "Speak exactly this English introduction and do not ask any interview question: \"\(introductionText)\""
             ]
         ])
     }
@@ -260,13 +292,22 @@ final class OpenAIRealtimeInterviewSession {
                 }
             }
         case "response.created", "response.output_item.added", "response.content_part.added":
-            beginAssistantAudioTurn()
-            onStateChange(.speaking)
+            beginAssistantAudioTurn(purpose: currentAssistantTurnPurpose)
+            if currentAssistantTurnPurpose != .introduction {
+                onStateChange(.speaking)
+            }
         case "response.output_audio.delta", "response.audio.delta":
             if let delta = object["delta"] as? String {
-                beginAssistantAudioTurn()
+                beginAssistantAudioTurn(purpose: currentAssistantTurnPurpose)
                 playBase64PCM(delta)
-                onStateChange(.speaking)
+                if currentAssistantTurnPurpose == .introduction {
+                    if !didStartIntroductionAudio {
+                        didStartIntroductionAudio = true
+                        onStateChange(.introductionSpeaking)
+                    }
+                } else {
+                    onStateChange(.speaking)
+                }
             }
         case "response.output_audio_transcript.delta", "response.audio_transcript.delta", "response.output_text.delta":
             if let delta = object["delta"] as? String {
@@ -417,10 +458,21 @@ final class OpenAIRealtimeInterviewSession {
             }
         }
 
+        if let requestedLanguage = Self.requestedInterviewLanguage(in: candidateTextBuffer),
+           requestedLanguage != primaryInterviewLanguage {
+            primaryInterviewLanguage = requestedLanguage
+            do {
+                try await sendLanguageInstructionUpdate()
+            } catch {
+                reportError(RealtimeSessionError(message: error.localizedDescription, type: "session_language_update", code: nil, param: nil))
+                return
+            }
+        }
+
         candidateResponseInFlight = true
         uploadedCandidateAudioDurationMs = 0
         serverVADStoppedCurrentTurn = false
-        beginAssistantAudioTurn()
+        beginAssistantAudioTurn(purpose: .interview)
         do {
             try await sendEvent(["type": "response.create"])
             onStateChange(.thinking)
@@ -429,21 +481,78 @@ final class OpenAIRealtimeInterviewSession {
         }
     }
 
-    private func beginAssistantAudioTurn() {
+    private func sendLanguageInstructionUpdate() async throws {
+        try await sendInProgressSessionUpdate()
+    }
+
+    private func sendInProgressSessionUpdate() async throws {
+        let prompt = InterviewSystemPrompt.make(
+            for: configuration,
+            primaryInterviewLanguage: primaryInterviewLanguage.rawValue,
+            includeOpeningInstructions: false
+        )
+        try await sendEvent([
+            "type": "session.update",
+            "session": [
+                "type": "realtime",
+                "instructions": prompt
+            ]
+        ])
+    }
+
+    private func beginAssistantAudioTurn(purpose: AssistantTurnPurpose) {
         cancelPendingCandidateCompletion()
+        currentAssistantTurnPurpose = purpose
         assistantAudioActive = true
         serverAudioDone = false
     }
 
     private func finishAssistantPlaybackIfReady() {
         guard assistantAudioActive, serverAudioDone, pendingPlaybackBuffers == 0 else { return }
+        let completedPurpose = currentAssistantTurnPurpose
         assistantAudioActive = false
 
-        if shouldCompleteAfterAssistantPlayback {
+        if completedPurpose == .introduction, !hasDeliveredIntroduction {
+            hasDeliveredIntroduction = true
+            didStartIntroductionAudio = false
+            onStateChange(.openingBeat)
+            scheduleFirstQuestionAfterIntroduction()
+        } else if shouldCompleteAfterAssistantPlayback {
             shouldCompleteAfterAssistantPlayback = false
             complete(isPartial: false)
         } else if !didComplete {
             onStateChange(.listening)
+        }
+    }
+
+    private func scheduleFirstQuestionAfterIntroduction() {
+        openingQuestionTask?.cancel()
+        openingQuestionTask = Task { [weak self] in
+            do {
+                guard let self else { return }
+                try await Task.sleep(for: self.openingQuestionBeat)
+                try Task.checkCancellation()
+                await self.requestFirstCountedQuestion()
+            } catch {
+                return
+            }
+        }
+    }
+
+    private func requestFirstCountedQuestion() async {
+        guard hasDeliveredIntroduction, !didComplete, !didReportError else { return }
+        do {
+            try await sendInProgressSessionUpdate()
+            beginAssistantAudioTurn(purpose: .interview)
+            try await sendEvent([
+                "type": "response.create",
+                "response": [
+                    "instructions": "Ask the first real counted interview question now in English. Do not greet again, do not mention question numbers, and do not ask any separate starter question."
+                ]
+            ])
+            onStateChange(.thinking)
+        } catch {
+            reportError(RealtimeSessionError(message: error.localizedDescription, type: "opening_question_create", code: nil, param: nil))
         }
     }
 
@@ -463,6 +572,103 @@ final class OpenAIRealtimeInterviewSession {
     private static func pcm16DurationMilliseconds(_ data: Data) -> Double {
         let sampleCount = Double(data.count / MemoryLayout<Int16>.size)
         return sampleCount / 24_000 * 1_000
+    }
+
+    private static func requestedInterviewLanguage(in text: String) -> InterviewLanguage? {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalized.isEmpty else { return nil }
+
+        if requestsArabicInterviewLanguage(normalized) {
+            return .arabic
+        }
+
+        if requestsEnglishInterviewLanguage(normalized) {
+            return .english
+        }
+
+        return nil
+    }
+
+    private static func requestsArabicInterviewLanguage(_ text: String) -> Bool {
+        let mentionsArabic = text.contains("arabic")
+            || text.contains("عربي")
+            || text.contains("العربي")
+            || text.contains("بالعربي")
+            || text.contains("العربية")
+        guard mentionsArabic else { return false }
+
+        let englishIntent = [
+            "can we continue",
+            "could we continue",
+            "let's continue",
+            "lets continue",
+            "switch to",
+            "change to",
+            "can you speak",
+            "could you speak",
+            "speak arabic",
+            "talk in",
+            "continue in"
+        ]
+
+        let arabicIntent = [
+            "ممكن نكمل",
+            "نقدر نكمل",
+            "خلنا نكمل",
+            "نكمل بالعربي",
+            "تكلم عربي",
+            "تكلمي عربي",
+            "تكلم بالعربي",
+            "تكلمي بالعربي",
+            "حول للعربي",
+            "نحول للعربي",
+            "غير للعربي"
+        ]
+
+        return englishIntent.contains { text.contains($0) } || arabicIntent.contains { text.contains($0) }
+    }
+
+    private static func requestsEnglishInterviewLanguage(_ text: String) -> Bool {
+        let mentionsEnglish = text.contains("english")
+            || text.contains("إنجليزي")
+            || text.contains("انجليزي")
+            || text.contains("بالإنجليزي")
+            || text.contains("بالانجليزي")
+        guard mentionsEnglish else { return false }
+
+        let englishIntent = [
+            "can we continue",
+            "could we continue",
+            "let's continue",
+            "lets continue",
+            "switch to",
+            "change to",
+            "can you speak",
+            "could you speak",
+            "speak english",
+            "talk in",
+            "continue in"
+        ]
+
+        let arabicIntent = [
+            "ممكن نكمل",
+            "نقدر نكمل",
+            "خلنا نكمل",
+            "نكمل بالإنجليزي",
+            "نكمل بالانجليزي",
+            "تكلم إنجليزي",
+            "تكلم انجليزي",
+            "تكلمي إنجليزي",
+            "تكلمي انجليزي",
+            "حول للإنجليزي",
+            "حول للانجليزي",
+            "نحول للإنجليزي",
+            "نحول للانجليزي",
+            "غير للإنجليزي",
+            "غير للانجليزي"
+        ]
+
+        return englishIntent.contains { text.contains($0) } || arabicIntent.contains { text.contains($0) }
     }
 
     private static func appearsSemanticallyIncomplete(_ text: String) -> Bool {
@@ -519,38 +725,19 @@ final class OpenAIRealtimeInterviewSession {
 
     private func shouldCountAssistantTurn(_ text: String) -> Bool {
         guard text.contains("?") else { return false }
-        if text.localizedCaseInsensitiveContains("tell me about yourself") { return false }
         if text.localizedCaseInsensitiveContains("anything you'd like to add before we conclude") { return false }
         if text.localizedCaseInsensitiveContains("anything you'd like to add or ask before we conclude") { return false }
         if text.localizedCaseInsensitiveContains("anything you'd like to ask or add") { return false }
         if text.localizedCaseInsensitiveContains("before we wrap up") { return false }
+        if text.localizedCaseInsensitiveContains("take your time") { return false }
+        if text.localizedCaseInsensitiveContains("could you repeat") { return false }
+        if text.localizedCaseInsensitiveContains("would you like me to repeat") { return false }
+        if text.localizedCaseInsensitiveContains("let me rephrase") { return false }
+        if text.localizedCaseInsensitiveContains("sorry, could you repeat") { return false }
+        if text.localizedCaseInsensitiveContains("i didn't quite catch") { return false }
         if text.localizedCaseInsensitiveContains("could you clarify") { return false }
         if text.localizedCaseInsensitiveContains("could you give me a specific example") { return false }
-        if isLikelyFollowUpOrProbe(text) { return false }
         return countedQuestionCount < configuration.questionCount.rawValue
-    }
-
-    private func isLikelyFollowUpOrProbe(_ text: String) -> Bool {
-        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let followUpPrefixes = [
-            "what was your role",
-            "what part of",
-            "what did you own",
-            "how did you approach that",
-            "how did you measure",
-            "what was the outcome",
-            "what led you to",
-            "why did you choose",
-            "can you tell me more",
-            "could you tell me more",
-            "could you give me an example",
-            "what do you mean by",
-            "how so",
-            "in what way",
-            "what happened next"
-        ]
-
-        return followUpPrefixes.contains { normalized.hasPrefix($0) }
     }
 
     private func reportError(_ error: RealtimeSessionError) {

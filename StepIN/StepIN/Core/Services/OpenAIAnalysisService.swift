@@ -92,7 +92,7 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
         Evidence rules:
         - Use only evidence from the provided setup data and transcript.
         - Never invent candidate facts, experience, projects, skills, certificates, achievements, responsibilities, metrics, motivations, or gaps.
-        - Exclude the greeting, warm-up question, brief acknowledgements, clarification prompts, and final closing question from direct scoring.
+        - Exclude the greeting, brief acknowledgements, clarification prompts, and final closing question from direct scoring.
         - If the interview is Partial, evaluate only completed evidence. Do not score future unanswered questions as zero.
         - If the candidate skipped or refused a counted question, score that answered item as zero evidence for that question.
         - Do not penalize untested capabilities. Treat unobserved dimensions as insufficient evidence, not weaknesses.
