@@ -321,12 +321,6 @@ private struct HomeGreetingHeader: View {
                     .foregroundStyle(StepINColor.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
-
-                Text("Ready to build your confidence today?")
-                    .font(.system(.footnote, design: .default, weight: .regular))
-                    .foregroundStyle(StepINColor.textSecondary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer(minLength: 0)
