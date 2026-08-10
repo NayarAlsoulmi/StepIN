@@ -312,12 +312,12 @@ private struct HomeGreetingHeader: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("Good morning,")
-                    .font(.system(.subheadline, design: .default, weight: .medium))
+                    .font(.system(.subheadline, design: .rounded, weight: .medium))
                     .foregroundStyle(StepINColor.primary)
                     .lineLimit(1)
 
                 Text(firstName)
-                    .font(.system(.title2, design: .default, weight: .bold))
+                    .font(.system(size: 17, weight: .semibold, design: .rounded, ))
                     .foregroundStyle(StepINColor.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
@@ -400,7 +400,7 @@ private struct HomeInterviewHeroCard: View {
     private var leftColumn: some View {
         VStack(alignment: .leading, spacing: StepINSpacing.sm) {
             Text("Ready for your next interview?")
-                .font(.system(.title3, design: .default, weight: .bold))
+                .font(.system(.title3, design: .rounded, weight: .bold))
                 .foregroundColor(Color(hex: 0x393939))
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)

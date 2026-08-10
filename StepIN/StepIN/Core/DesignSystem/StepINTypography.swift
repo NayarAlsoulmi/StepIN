@@ -10,11 +10,11 @@ import SwiftUI
 
 enum StepINFont {
     // Headings
-    static let h1 = Font.system(size: 24, weight: .bold)      // Screen / hero titles
-    static let h2 = Font.system(size: 22, weight: .bold)
-    static let h3 = Font.system(size: 20, weight: .bold)      // Section titles
-    static let h4 = Font.system(size: 16, weight: .bold)      // Card titles
-    static let h5 = Font.system(size: 14, weight: .bold)
+    static let h1 = Font.system(size: 24, weight: .bold, design: .rounded)      // Screen / hero titles
+    static let h2 = Font.system(size: 22, weight: .bold, design: .rounded)
+    static let h3 = Font.system(size: 20, weight: .bold, design: .rounded)      // Section titles
+    static let h4 = Font.system(size: 16, weight: .bold, design: .rounded)      // Card titles
+    static let h5 = Font.system(size: 14, weight: .bold, design: .rounded)
 
     // Body (semibold-led, per Figma)
     static let body1 = Font.system(size: 16, weight: .semibold, design: .rounded)
