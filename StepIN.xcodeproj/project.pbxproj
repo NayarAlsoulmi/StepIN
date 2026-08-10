@@ -15,22 +15,9 @@
 		088E9CA6301E44A200DD2199 /* StepIN.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StepIN.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		0859CB55302649C000717842 /* Exceptions for "StepIN" folder in "StepIN" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Secrets.xcconfig,
-			);
-			target = 088E9CA5301E44A200DD2199 /* StepIN */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		088E9CA8301E44A200DD2199 /* StepIN */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				0859CB55302649C000717842 /* Exceptions for "StepIN" folder in "StepIN" target */,
-			);
 			path = StepIN;
 			sourceTree = "<group>";
 		};

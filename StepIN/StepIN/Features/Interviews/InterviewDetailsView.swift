@@ -49,7 +49,7 @@ struct InterviewDetailsView: View {
             .padding(StepINSpacing.screenH)
             .padding(.bottom, StepINSpacing.xxl)
         }
-        .background(StepINColor.background)
+        .background(StepINScreenBackground())
         .navigationTitle(interview.jobTitle)
         .navigationBarTitleDisplayMode(.inline)
     }

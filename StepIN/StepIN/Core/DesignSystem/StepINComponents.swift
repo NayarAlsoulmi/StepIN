@@ -103,36 +103,27 @@ struct StepINPressStyle: ButtonStyle {
 
 struct StepINCard<Content: View>: View {
     var padding: CGFloat = StepINSpacing.md
-    var background: Color = StepINColor.surface
+    var background: Color = Color(hex: 0xFFFFFF)
     var tintOpacity: Double = 0.12
     @ViewBuilder var content: Content
-
+    
     var body: some View {
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .clipShape(RoundedRectangle(cornerRadius: StepINRadius.large, style: .continuous))
-            .background(cardBackground)
-    }
-
-    @ViewBuilder
-    private var cardBackground: some View {
-        if #available(iOS 26.0, *) {
-            RoundedRectangle(cornerRadius: StepINRadius.large, style: .continuous)
-                .fill(background.opacity(tintOpacity))
-                .glassEffect(
-                    .regular.tint(Color.white.opacity(0.01)),
-                    in: RoundedRectangle(cornerRadius: StepINRadius.large, style: .continuous)
+            .clipShape(
+                RoundedRectangle(
+                    cornerRadius: StepINRadius.large,
+                    style: .continuous
                 )
-        } else {
-            RoundedRectangle(cornerRadius: StepINRadius.large, style: .continuous)
-                .fill(.white.opacity(0.55))
-                .overlay(
-                    RoundedRectangle(cornerRadius: StepINRadius.large, style: .continuous)
-                        .stroke(.white.opacity(0.8), lineWidth: 1)
+            )
+            .glassEffect(
+                .regular.tint(Color.white.opacity(0.01)),
+                in: RoundedRectangle(
+                    cornerRadius: StepINRadius.large,
+                    style: .continuous
                 )
-                .shadow(color: .black.opacity(0.05), radius: 24, y: 12)
-        }
+            )
     }
 }
 
