@@ -24,7 +24,7 @@ struct SplashView: View {
 
                 VStack(spacing: StepINSpacing.xs) {
                     Text("StepIN")
-                        .font(.system(size: 40, weight: .bold))
+                        .font(.system(size: 40, weight: .bold, design: .rounded))
                         .foregroundColor(StepINColor.textPrimary)
                     Text("Step into your next opportunity.")
                         .font(StepINFont.body1)

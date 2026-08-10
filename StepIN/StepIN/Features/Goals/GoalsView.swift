@@ -30,7 +30,13 @@ struct GoalsView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
+            VStack(alignment: .leading, spacing: StepINSpacing.md) {
+                Text("My Goals")
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .foregroundColor(StepINColor.textPrimary)
+                    .padding(.horizontal, StepINSpacing.screenH)
+                    .padding(.top, StepINSpacing.xxl)
+
                 if goals.isEmpty {
                     StepINEmptyState(
                         title: "No goals yet",
@@ -56,15 +62,13 @@ struct GoalsView: View {
                 }
             }
             .background(StepINScreenBackground())
-            .navigationTitle("My Goals")
-            .navigationBarTitleDisplayMode(.large)
-            .confirmationDialog(
+            .toolbar(.hidden, for: .navigationBar)
+            .alert(
                 "Delete this goal?",
                 isPresented: Binding(
                     get: { goalPendingDeletion != nil },
                     set: { if !$0 { goalPendingDeletion = nil } }
-                ),
-                titleVisibility: .visible
+                )
             ) {
                 Button("Delete", role: .destructive) {
                     if let goal = goalPendingDeletion { delete(goal) }
@@ -72,6 +76,7 @@ struct GoalsView: View {
                 }
                 Button("Cancel", role: .cancel) { goalPendingDeletion = nil }
             }
+            .tint(StepINColor.textPrimary.opacity(0.72))
         }
     }
 
@@ -117,7 +122,7 @@ struct GoalCard: View {
 
                 VStack(alignment: .leading, spacing: StepINSpacing.xs) {
                     Text(goal.title)
-                        .font(.body.weight(.semibold))
+                        .font(StepINFont.body2)
                         .foregroundStyle(StepINColor.textPrimary)
                         .strikethrough(isCompleted, color: StepINColor.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -130,7 +135,7 @@ struct GoalCard: View {
                             .background(StepINColor.primarySoft.opacity(0.65), in: Circle())
 
                         Text(goal.sourceLabel)
-                            .font(.footnote)
+                            .font(StepINFont.caption)
                             .foregroundStyle(StepINColor.textTertiary)
                             .lineLimit(1)
                     }

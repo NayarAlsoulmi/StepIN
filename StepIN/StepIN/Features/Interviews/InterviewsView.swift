@@ -33,7 +33,13 @@ struct InterviewsView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
+            VStack(alignment: .leading, spacing: StepINSpacing.md) {
+                Text("My Interviews")
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .foregroundColor(StepINColor.textPrimary)
+                    .padding(.horizontal, StepINSpacing.screenH)
+                    .padding(.top, StepINSpacing.xxl)
+
                 if completed.isEmpty {
                     StepINEmptyState(
                         title: "No interviews yet",
@@ -67,7 +73,7 @@ struct InterviewsView: View {
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
-                    .contentMargins(.top, StepINSpacing.sm, for: .scrollContent)
+                    .contentMargins(.top, StepINSpacing.xs, for: .scrollContent)
                     .contentMargins(.bottom, StepINSpacing.giant, for: .scrollContent)
                     // Pull-down search: hidden until the user pulls the list,
                     // keeping the default screen clean.
@@ -80,20 +86,18 @@ struct InterviewsView: View {
                 }
             }
             .background(StepINScreenBackground())
-            .navigationTitle("My Interviews")
-            .navigationBarTitleDisplayMode(.large)
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: UUID.self) { id in
                 if let interview = completed.first(where: { $0.id == id }) {
                     InterviewDetailsView(interview: interview)
                 }
             }
-            .confirmationDialog(
+            .alert(
                 "Delete this interview?",
                 isPresented: Binding(
                     get: { interviewPendingDeletion != nil },
                     set: { if !$0 { interviewPendingDeletion = nil } }
-                ),
-                titleVisibility: .visible
+                )
             ) {
                 Button("Delete Interview", role: .destructive) {
                     if let interview = interviewPendingDeletion { delete(interview) }
@@ -103,6 +107,7 @@ struct InterviewsView: View {
             } message: {
                 Text("The transcript and analysis will be deleted. Goals from this interview are kept.")
             }
+            .tint(StepINColor.textPrimary.opacity(0.72))
         }
     }
 
@@ -182,7 +187,7 @@ struct ScoreBadge: View {
                 .stroke(StepINColor.primary, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
             Text("\(score)")
-                .font(.system(size: size * 0.3, weight: .bold))
+                .font(.system(size: size * 0.3, weight: .bold, design: .rounded))
                 .foregroundColor(StepINColor.textPrimary)
         }
         .frame(width: size, height: size)

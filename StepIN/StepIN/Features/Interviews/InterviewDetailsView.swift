@@ -258,7 +258,7 @@ struct TranscriptRow: View {
             }
 
             Text(message.text)
-                .font(.system(size: 15))
+                .font(.system(size: 15, design: .rounded))
                 .foregroundColor(isInterviewer ? StepINColor.textPrimary : StepINColor.onPrimary)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, StepINSpacing.md)

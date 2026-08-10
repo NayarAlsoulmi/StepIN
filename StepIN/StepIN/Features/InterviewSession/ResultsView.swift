@@ -123,7 +123,7 @@ struct ResultsView: View {
                     .rotationEffect(.degrees(-90))
                 VStack(spacing: 2) {
                     Text("\(interview.overallScore ?? 0)")
-                        .font(.system(size: 44, weight: .bold))
+                        .font(.system(size: 44, weight: .bold, design: .rounded))
                         .foregroundColor(StepINColor.textPrimary)
                     Text("/ 100")
                         .font(StepINFont.body3)

@@ -32,6 +32,7 @@ struct ProfileView: View {
     private var profileContent: some View {
         ScrollView {
             VStack(spacing: StepINSpacing.xl) {
+                profileTopBar
                 header
                 profileFields
             }
@@ -40,20 +41,26 @@ struct ProfileView: View {
             .padding(.bottom, StepINSpacing.giant)
         }
         .background(StepINScreenBackground())
-        .navigationTitle("Profile")
-        .navigationBarTitleDisplayMode(.large)
-        .toolbar {
-            if profile != nil {
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Edit") { showEditProfile = true }
-                        .fontWeight(.semibold)
-                        .foregroundStyle(StepINColor.primary)
-                }
-            }
-        }
+        .toolbar(embedsInNavigationStack ? .hidden : .visible, for: .navigationBar)
         .sheet(isPresented: $showEditProfile) {
             if let profile {
                 EditProfileView(profile: profile)
+            }
+        }
+    }
+
+    private var profileTopBar: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("Profile")
+                .font(.system(size: 34, weight: .bold, design: .rounded))
+                .foregroundColor(StepINColor.textPrimary)
+
+            Spacer()
+
+            if profile != nil {
+                Button("Edit") { showEditProfile = true }
+                    .font(StepINFont.body2)
+                    .foregroundStyle(StepINColor.primary)
             }
         }
     }

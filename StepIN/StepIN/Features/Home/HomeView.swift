@@ -346,7 +346,7 @@ private struct ProfileAvatarView: View {
                 .allowsHitTesting(false)
 
             Text(initials)
-                .font(.system(.headline, design: .default, weight: .semibold))
+                .font(.system(.headline, design: .rounded, weight: .semibold))
                 .foregroundStyle(StepINColor.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -380,15 +380,15 @@ private struct HomeInterviewHeroCard: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var robotColumnWidth: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? 128 : 140
+        dynamicTypeSize.isAccessibilitySize ? 170 : 170
     }
 
     private var robotSize: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? 124 : 140
+        dynamicTypeSize.isAccessibilitySize ? 230 : 230
     }
 
     private var robotVisualHeight: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? 136 : 150
+        dynamicTypeSize.isAccessibilitySize ? 190 : 190
     }
 
     var body: some View {
@@ -397,7 +397,7 @@ private struct HomeInterviewHeroCard: View {
             robertColumn
         }
         .frame(maxWidth: .infinity)
-        .frame(minHeight: dynamicTypeSize.isAccessibilitySize ? 220 : 178)
+        .frame(minHeight: dynamicTypeSize.isAccessibilitySize ? 250 : 210)
         .background(cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: StepINRadius.hero, style: .continuous))
         .stepINShadow(.card)
@@ -412,7 +412,7 @@ private struct HomeInterviewHeroCard: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             Text("Practice with an AI interviewer tailored to your role.")
-                .font(.system(.subheadline, design: .default, weight: .regular))
+                .font(.system(.subheadline, design: .rounded, weight: .regular))
                 .foregroundColor(Color(hex: 0x393939).opacity(0.99))
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -450,7 +450,7 @@ private struct HomeInterviewHeroCard: View {
     private var robertColumn: some View {
         ZStack(alignment: .bottomTrailing) {
             StepINGradient.robotGlow
-                .frame(width: 132, height: 132)
+                .frame(width: 230, height: 230)
                 .opacity(0.1)
 
             Circle()
@@ -464,7 +464,7 @@ private struct HomeInterviewHeroCard: View {
             robertView
         }
         .frame(width: robotColumnWidth)
-        .frame(minHeight: 148)
+        .frame(minHeight: 190)
         .padding(.trailing, StepINSpacing.xs)
         .contentShape(Rectangle())
         .onTapGesture(perform: robotTapAction)

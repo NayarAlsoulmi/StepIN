@@ -77,16 +77,16 @@ struct InterviewSessionView: View {
         }
         .animation(StepINMotion.fade, value: viewModel.phase)
         .onAppear { viewModel.start() }
-        .confirmationDialog(
+        .alert(
             "End this interview?",
-            isPresented: $confirmEnd,
-            titleVisibility: .visible
+            isPresented: $confirmEnd
         ) {
             Button("End Interview", role: .destructive) { viewModel.endInterview() }
             Button("Continue Interview", role: .cancel) {}
         } message: {
             Text("You'll still receive feedback on the answers you've completed.")
         }
+        .tint(StepINColor.textPrimary.opacity(0.72))
     }
 
     // MARK: Top bar
@@ -97,7 +97,7 @@ struct InterviewSessionView: View {
                 viewModel.pause()
             } label: {
                 Image(systemName: "pause.fill")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
                     .foregroundColor(StepINColor.textSecondary)
                     .frame(width: 44, height: 44)
                     .background(.ultraThinMaterial, in: Circle())

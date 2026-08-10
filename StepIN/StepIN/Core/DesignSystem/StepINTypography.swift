@@ -17,18 +17,18 @@ enum StepINFont {
     static let h5 = Font.system(size: 14, weight: .bold)
 
     // Body (semibold-led, per Figma)
-    static let body1 = Font.system(size: 16, weight: .semibold)
-    static let body2 = Font.system(size: 15, weight: .semibold)
-    static let body3 = Font.system(size: 14, weight: .semibold)
-    static let body4 = Font.system(size: 13, weight: .semibold)
-    static let body5 = Font.system(size: 12, weight: .semibold)
+    static let body1 = Font.system(size: 16, weight: .semibold, design: .rounded)
+    static let body2 = Font.system(size: 15, weight: .semibold, design: .rounded)
+    static let body3 = Font.system(size: 14, weight: .semibold, design: .rounded)
+    static let body4 = Font.system(size: 13, weight: .semibold, design: .rounded)
+    static let body5 = Font.system(size: 12, weight: .semibold, design: .rounded)
 
     // Regular body for longer copy
-    static let bodyRegular = Font.system(size: 16, weight: .regular)
-    static let caption = Font.system(size: 12, weight: .regular)
+    static let bodyRegular = Font.system(size: 16, weight: .regular, design: .rounded)
+    static let caption = Font.system(size: 12, weight: .regular, design: .rounded)
 
-    static let nav = Font.system(size: 16, weight: .bold)
-    static let button = Font.system(size: 17, weight: .semibold)
+    static let nav = Font.system(size: 16, weight: .bold, design: .rounded)
+    static let button = Font.system(size: 17, weight: .semibold, design: .rounded)
 }
 
 extension Text {
