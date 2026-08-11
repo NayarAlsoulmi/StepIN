@@ -49,6 +49,7 @@ final class OpenAIRealtimeInterviewSession {
     private let onStateChange: (RuntimeState) -> Void
     private let onInterviewerText: (String) -> Void
     private let onTranscriptEntry: (TranscriptEntry) -> Void
+    private let onVoiceAnalysisResult: (_ emotion: String, _ confidence: Double) -> Void
     private let onCompleted: (_ isPartial: Bool, _ completedQuestionCount: Int) -> Void
     private let onError: (RealtimeSessionError) -> Void
     private var primaryInterviewLanguage: InterviewLanguage = .english
@@ -58,6 +59,8 @@ final class OpenAIRealtimeInterviewSession {
     private var audioEngine = AVAudioEngine()
     private var playbackEngine = AVAudioEngine()
     private let playerNode = AVAudioPlayerNode()
+    private let voiceStressAnalysisService = VoiceStressAnalysisService()
+    private var microphoneInputFormat: AVAudioFormat?
     private var isConnected = false
     private var isPaused = false
     private var didComplete = false
@@ -91,6 +94,7 @@ final class OpenAIRealtimeInterviewSession {
         onStateChange: @escaping (RuntimeState) -> Void,
         onInterviewerText: @escaping (String) -> Void,
         onTranscriptEntry: @escaping (TranscriptEntry) -> Void,
+        onVoiceAnalysisResult: @escaping (_ emotion: String, _ confidence: Double) -> Void = { _, _ in },
         onCompleted: @escaping (_ isPartial: Bool, _ completedQuestionCount: Int) -> Void,
         onError: @escaping (RealtimeSessionError) -> Void
     ) {
@@ -99,8 +103,12 @@ final class OpenAIRealtimeInterviewSession {
         self.onStateChange = onStateChange
         self.onInterviewerText = onInterviewerText
         self.onTranscriptEntry = onTranscriptEntry
+        self.onVoiceAnalysisResult = onVoiceAnalysisResult
         self.onCompleted = onCompleted
         self.onError = onError
+        self.voiceStressAnalysisService.onResult = { [weak self] emotion, confidence in
+            self?.onVoiceAnalysisResult(emotion, confidence)
+        }
     }
 
     func start() async throws {
@@ -116,6 +124,7 @@ final class OpenAIRealtimeInterviewSession {
 
     func pause() {
         isPaused = true
+        stopVoiceAnalysis()
         audioEngine.pause()
         playerNode.pause()
         onStateChange(.paused)
@@ -132,6 +141,7 @@ final class OpenAIRealtimeInterviewSession {
     func finishCurrentAnswer() {
         candidateCompletionTask?.cancel()
         candidateCompletionTask = nil
+        stopVoiceAnalysis()
         Task { @MainActor [weak self] in
             guard let self else { return }
             guard self.serverVADStoppedCurrentTurn || self.shouldCommitCandidateAudioManually else {
@@ -155,7 +165,9 @@ final class OpenAIRealtimeInterviewSession {
         openingQuestionTask = nil
         receiveTask?.cancel()
         receiveTask = nil
+        stopVoiceAnalysis()
         audioEngine.stop()
+        microphoneInputFormat = nil
         playbackGeneration += 1
         pendingPlaybackBuffers = 0
         assistantAudioActive = false
@@ -276,11 +288,13 @@ final class OpenAIRealtimeInterviewSession {
             if !assistantAudioActive {
                 candidateResponseInFlight = false
                 serverVADStoppedCurrentTurn = false
+                startVoiceAnalysisIfNeeded()
                 onStateChange(.listening)
             }
         case "input_audio_buffer.speech_stopped":
             if !assistantAudioActive {
                 serverVADStoppedCurrentTurn = true
+                stopVoiceAnalysis()
                 scheduleCandidateCompletion()
                 onStateChange(.listening)
             }
@@ -366,8 +380,11 @@ final class OpenAIRealtimeInterviewSession {
     private func startMicrophoneCapture() throws {
         let inputNode = audioEngine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
+        microphoneInputFormat = inputFormat
+        let voiceAnalyzer = voiceStressAnalysisService
         inputNode.removeTap(onBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 2400, format: inputFormat) { [weak self] buffer, _ in
+        inputNode.installTap(onBus: 0, bufferSize: 2400, format: inputFormat) { [weak self, voiceAnalyzer] buffer, time in
+            voiceAnalyzer.analyze(buffer, atAudioFramePosition: time.sampleTime)
             guard let self else { return }
             let pcmData = Self.convertToPCM16Data(buffer: buffer)
             guard !pcmData.isEmpty else { return }
@@ -381,6 +398,20 @@ final class OpenAIRealtimeInterviewSession {
         }
         audioEngine.prepare()
         try audioEngine.start()
+    }
+
+    private func startVoiceAnalysisIfNeeded() {
+        guard let microphoneInputFormat else { return }
+
+        do {
+            try voiceStressAnalysisService.startAnalyzingExistingStream(format: microphoneInputFormat)
+        } catch {
+            print("VoiceStressAnalysisService error:", error)
+        }
+    }
+
+    private func stopVoiceAnalysis() {
+        voiceStressAnalysisService.stopAnalyzing()
     }
 
     private func playBase64PCM(_ base64: String) {
@@ -442,6 +473,7 @@ final class OpenAIRealtimeInterviewSession {
     private func requestAssistantResponseForCompletedCandidateTurn(commitIfNeeded: Bool) async {
         guard !assistantAudioActive, !didComplete, !didReportError, !candidateResponseInFlight else { return }
         candidateCompletionTask = nil
+        stopVoiceAnalysis()
 
         if commitIfNeeded {
             guard uploadedCandidateAudioDurationMs >= minimumCommitAudioDurationMs else {

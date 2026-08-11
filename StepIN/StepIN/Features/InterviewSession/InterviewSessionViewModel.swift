@@ -34,6 +34,8 @@ final class InterviewSessionViewModel {
     private(set) var sessionErrorMessage: String?
     private(set) var transcript: [TranscriptEntry] = []
     private(set) var robertOneShot: RobertAnimationState?
+    private(set) var latestVoiceClassification: String?
+    private(set) var latestVoiceConfidence: Double = 0
     /// Set when the interview finishes (naturally or ended early).
     private(set) var didFinish = false
     private(set) var endedEarly = false
@@ -97,6 +99,9 @@ final class InterviewSessionViewModel {
             onStateChange: { [weak self] state in self?.applyRealtimeState(state) },
             onInterviewerText: { [weak self] text in self?.currentQuestionText = text },
             onTranscriptEntry: { [weak self] entry in self?.appendRealtimeTranscript(entry) },
+            onVoiceAnalysisResult: { [weak self] emotion, confidence in
+                self?.updateVoiceAnalysis(emotion: emotion, confidence: confidence)
+            },
             onCompleted: { [weak self] isPartial, completedCount in
                 self?.finishRealtime(isPartial: isPartial, completedCount: completedCount)
             },
@@ -111,6 +116,8 @@ final class InterviewSessionViewModel {
     func start() {
         guard phase == .idle else { return }
         sessionErrorMessage = nil
+        latestVoiceClassification = nil
+        latestVoiceConfidence = 0
 
         if let realtimeSession {
             phaseTask = Task { [weak self] in
@@ -316,6 +323,11 @@ final class InterviewSessionViewModel {
     private func appendRealtimeTranscript(_ entry: TranscriptEntry) {
         guard transcript.last?.speaker != entry.speaker || transcript.last?.text != entry.text else { return }
         transcript.append(entry)
+    }
+
+    private func updateVoiceAnalysis(emotion: String, confidence: Double) {
+        latestVoiceClassification = emotion
+        latestVoiceConfidence = confidence
     }
 
     private func finishRealtime(isPartial: Bool, completedCount: Int) {
