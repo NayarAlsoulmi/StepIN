@@ -76,12 +76,15 @@ final class InterviewSessionViewModel {
     private var resumePhase: Phase = .interviewerSpeaking
     private var currentQuestion: InterviewQuestion?
     /// Called exactly once when the session ends.
-    private let onFinished: (_ transcript: [TranscriptEntry], _ isPartial: Bool, _ completedCount: Int) -> Void
+    private let onFinished: (_ transcript: [TranscriptEntry], _ isPartial: Bool, _ completedCount: Int, _ metrics: VoiceDeliveryMetrics) -> Void
+    /// Maps candidate turn UUID → index in `transcript` where that turn's entry lives.
+    /// Allows late authoritative transcripts to update the existing entry in place.
+    private var candidateTurnTranscriptIndex: [UUID: Int] = [:]
 
     init(
         configuration: InterviewConfiguration,
         engine: MockInterviewEngine? = nil,
-        onFinished: @escaping (_ transcript: [TranscriptEntry], _ isPartial: Bool, _ completedCount: Int) -> Void
+        onFinished: @escaping (_ transcript: [TranscriptEntry], _ isPartial: Bool, _ completedCount: Int, _ metrics: VoiceDeliveryMetrics) -> Void
     ) {
         self.configuration = configuration
         self.engine = engine ?? MockInterviewEngine()
@@ -102,6 +105,7 @@ final class InterviewSessionViewModel {
             onVoiceAnalysisResult: { [weak self] emotion, confidence in
                 self?.updateVoiceAnalysis(emotion: emotion, confidence: confidence)
             },
+            onCandidateTranscript: { [weak self] turnID, text in self?.handleCandidateTranscript(turnID: turnID, text: text) },
             onCompleted: { [weak self] isPartial, completedCount in
                 self?.finishRealtime(isPartial: isPartial, completedCount: completedCount)
             },
@@ -330,6 +334,22 @@ final class InterviewSessionViewModel {
         latestVoiceConfidence = confidence
     }
 
+    /// Creates or updates the candidate TranscriptEntry for a logical turn.
+    ///
+    /// Called by the session at response.create with the text accumulated so far,
+    /// and optionally again when a late transcription.completed arrives with the
+    /// authoritative final text. The second call updates the existing entry in
+    /// place rather than appending a new bubble — one turn, one entry, always.
+    private func handleCandidateTranscript(turnID: UUID, text: String) {
+        guard !text.isEmpty else { return }
+        if let existingIndex = candidateTurnTranscriptIndex[turnID] {
+            transcript[existingIndex] = TranscriptEntry(speaker: .candidate, text: text)
+        } else {
+            candidateTurnTranscriptIndex[turnID] = transcript.count
+            transcript.append(TranscriptEntry(speaker: .candidate, text: text))
+        }
+    }
+
     private func finishRealtime(isPartial: Bool, completedCount: Int) {
         guard !didFinish else { return }
         phaseTask?.cancel()
@@ -339,7 +359,15 @@ final class InterviewSessionViewModel {
         sessionErrorMessage = nil
         realtimeCompletedQuestionCount = completedCount
         phase = .finished
-        onFinished(transcript, isPartial, completedCount)
+        // Collect delivery metrics asynchronously before forwarding to the flow.
+        // Phase transitions are already applied above so the UI updates immediately.
+        let capturedTranscript = transcript
+        let capturedSession = realtimeSession
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let metrics = await capturedSession?.collectDeliveryMetrics(transcript: capturedTranscript) ?? .empty
+            self.onFinished(capturedTranscript, isPartial, completedCount, metrics)
+        }
     }
 
     private func finish(early: Bool) {
@@ -355,6 +383,6 @@ final class InterviewSessionViewModel {
         // Partial when ended before all selected questions were completed.
         let completedCount = realtimeCompletedQuestionCount ?? engine.askedQuestionCount
         let isPartial = early && completedCount < configuration.questionCount.rawValue
-        onFinished(transcript, isPartial, completedCount)
+        onFinished(transcript, isPartial, completedCount, .empty)
     }
 }

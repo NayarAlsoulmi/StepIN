@@ -21,7 +21,8 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
         configuration: InterviewConfiguration,
         transcript: [TranscriptEntry],
         isPartial: Bool,
-        completedQuestionCount: Int
+        completedQuestionCount: Int,
+        deliveryMetrics: VoiceDeliveryMetrics
     ) async throws -> AnalysisResult {
         var request = URLRequest(url: URL(string: "https://api.openai.com/v1/responses")!)
         request.httpMethod = "POST"
@@ -33,7 +34,7 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
             "input": [
                 [
                     "role": "system",
-                    "content": analysisInstructions(for: configuration)
+                    "content": analysisInstructions(for: configuration, metrics: deliveryMetrics)
                 ],
                 [
                     "role": "user",
@@ -78,7 +79,15 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
         return result
     }
 
-    private func analysisInstructions(for configuration: InterviewConfiguration) -> String {
+    private func analysisInstructions(for configuration: InterviewConfiguration, metrics: VoiceDeliveryMetrics) -> String {
+        var instructions = coreAnalysisInstructions(for: configuration)
+        if let deliveryBlock = deliveryEvidenceBlock(from: metrics) {
+            instructions += "\n\n" + deliveryBlock
+        }
+        return instructions
+    }
+
+    private func coreAnalysisInstructions(for configuration: InterviewConfiguration) -> String {
         """
         You are StepIN's interview evaluator. Return only the requested JSON object that matches the schema.
 
@@ -97,6 +106,7 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
         - If the candidate skipped or refused a counted question, score that answered item as zero evidence for that question.
         - Do not penalize untested capabilities. Treat unobserved dimensions as insufficient evidence, not weaknesses.
         - Prefer recurring patterns over isolated mistakes.
+        - The CV provides context for interview questions only. Skills, projects, experience, and certifications listed on the CV do not constitute performance evidence and must not generate scores, strengths, weaknesses, or goals. Only the candidate's actual spoken answers in the transcript are performance evidence.
 
         Scoring rules:
         - overallScore must be 0-100 and reflect general performance across dimensions actually observed.
@@ -106,14 +116,15 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
         - For confidence, combine answer content with reliable delivery evidence from the transcript when available, but do not infer internal emotional state.
 
         Feedback rules:
-        - Strengths: target 4, return fewer when evidence is insufficient. Each must express one clear evidence-backed strength in concise, natural language.
-        - Strengths should usually be 4-10 words, but do not force identical length. Short supported insights are allowed when they are meaningful.
-        - Avoid filler such as "Demonstrates", "Shows the ability to", "Has the capability to", or "Provides evidence of".
-        - Prefer direct wording such as "Clear Java foundation", "Comfortable using Python for AI work", "Explains project decisions clearly", or "Uses relevant teamwork examples".
-        - Areas to Improve: up to 4. Each must identify one evidence-backed weakness clearly and directly.
-        - Areas should usually be 4-10 words, with natural variation. They should name the improvement area, not explain the full solution.
-        - Avoid filler such as "Would benefit from", "Could improve by", "In future interviews", "Consider working on", or "Try to".
-        - Prefer direct wording such as "Add stronger project examples", "Quantify your impact", "Mention relevant tools and frameworks", or "Clarify your role in team projects".
+        - Strengths: target 4, return fewer when evidence is insufficient. Each must express one clear evidence-backed strength in specific, natural language.
+        - Strengths should usually be 6-12 words. Do not compress to a short label. Two lines are acceptable when they add clarity; padding is not.
+        - Each strength must be grounded in the candidate's actual interview answers, not CV content alone.
+        - Avoid opening filler such as "Demonstrates", "Shows the ability to", "Has the capability to", or "Provides evidence of". Write the strength directly.
+        - Target this level of specificity: "Demonstrated strong practical experience with AI projects", "Explained technical decisions clearly with relevant examples", "Showed solid practical experience developing with SwiftUI". Do not copy these — generate from the actual interview.
+        - Areas to Improve: up to 4. Each must identify one evidence-backed improvement area clearly and directly.
+        - Areas should usually be 6-12 words. Do not compress to a vague label. Two lines are acceptable when they add specificity; padding is not.
+        - Avoid opener filler such as "Would benefit from", "Could improve by", "In future interviews", "Consider working on", or "Try to".
+        - Target this level of specificity: "Provide more detail when explaining technical implementation", "Structure longer answers with a clearer sequence", "Include measurable outcomes when discussing project impact". Do not copy these — generate from the actual interview.
         - Goals: up to 3. Each goal must derive directly from a supported Area to Improve and be specific, achievable, and connected to this interview.
         - Each goal string must be one short, meaningful action statement that answers only: "What should this candidate improve?"
         - Prefer 5-9 words. Never exceed 10 words.
@@ -130,6 +141,46 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
         - Return summary as an empty string.
         - Never expose internal notes, evidence IDs, coverage maps, hidden weights, raw voice statistics, chain-of-thought, or internal reasoning.
         """
+    }
+
+    /// Builds a delivery evidence block when sufficient on-device audio data exists.
+    /// Returns nil when there is not enough candidate speech to derive useful signals.
+    private func deliveryEvidenceBlock(from metrics: VoiceDeliveryMetrics) -> String? {
+        guard metrics.hasEnoughEvidence else { return nil }
+
+        var lines = [
+            "Voice delivery evidence (on-device measurements — observable signals only, not psychological state):"
+        ]
+
+        let speakingMin = Int(metrics.totalSpeakingSeconds / 60)
+        let speakingSec = Int(metrics.totalSpeakingSeconds.truncatingRemainder(dividingBy: 60))
+        let durationLabel = speakingMin > 0 ? "\(speakingMin)m \(speakingSec)s" : "\(speakingSec)s"
+        lines.append("- Candidate speaking time: \(durationLabel)")
+        lines.append("- Speaking/silence ratio: \(Int(metrics.speakingRatio * 100))% speaking")
+        lines.append("- Meaningful pauses (>1.5 s): \(metrics.pauseCount)")
+
+        if metrics.pauseCount > 0 {
+            lines.append("- Average pause: \(String(format: "%.1f", metrics.averagePauseDurationMs / 1_000))s")
+            lines.append("- Longest pause: \(String(format: "%.1f", metrics.longestPauseDurationMs / 1_000))s")
+        }
+
+        if metrics.fillerWordCount >= 3 {
+            lines.append("- Detected filler-word occurrences: \(metrics.fillerWordCount)")
+        }
+
+        lines += [
+            "",
+            "Delivery feedback rules:",
+            "- Use delivery signals only as supporting communication evidence. Answer content and reasoning remain primary.",
+            "- Describe observable delivery behavior, never psychological state. Do not say the candidate was nervous, anxious, stressed, or unconfident.",
+            "- A delivery Strength or Area to Improve should appear only when the signal is clear, significant, and useful for the candidate.",
+            "- Natural thinking pauses are not a weakness. Only flag pause patterns that clearly affect communication flow.",
+            "- Filler words are supporting context, not automatic weaknesses — only mention if the count is high relative to answer length.",
+            "- Do not generate a delivery Strength or Area simply because a metric exists. Significance matters.",
+            "- Delivery feedback must follow the same 6–12 word target length and direct style as all other Strengths and Areas."
+        ]
+
+        return lines.joined(separator: "\n")
     }
 
     private func transcriptText(_ transcript: [TranscriptEntry], isPartial: Bool, completedQuestionCount: Int) -> String {

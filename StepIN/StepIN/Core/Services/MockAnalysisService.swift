@@ -16,7 +16,8 @@ final class MockAnalysisService: InterviewAnalysisServiceProtocol {
         configuration: InterviewConfiguration,
         transcript: [TranscriptEntry],
         isPartial: Bool,
-        completedQuestionCount: Int
+        completedQuestionCount: Int,
+        deliveryMetrics: VoiceDeliveryMetrics
     ) async throws -> AnalysisResult {
         // Simulate model latency.
         try? await Task.sleep(for: .seconds(1.2))
