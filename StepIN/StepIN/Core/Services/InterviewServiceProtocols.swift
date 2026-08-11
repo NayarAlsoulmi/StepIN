@@ -20,10 +20,24 @@ struct InterviewQuestion: Sendable, Equatable {
     let countsTowardTotal: Bool
 }
 
+/// On-device Core ML voice classification for one candidate speaking turn.
+struct VoicePerformanceResult: Sendable {
+    let label: String       // e.g. "Calm", "Neutral"
+    let confidence: Double  // 0.0–1.0
+}
+
 /// A single transcript entry produced during a session.
 struct TranscriptEntry: Sendable {
     let speaker: MessageSpeaker
     let text: String
+    /// Voice classification captured for this turn (candidate entries only).
+    let voiceResult: VoicePerformanceResult?
+
+    init(speaker: MessageSpeaker, text: String, voiceResult: VoicePerformanceResult? = nil) {
+        self.speaker = speaker
+        self.text = text
+        self.voiceResult = voiceResult
+    }
 }
 
 @MainActor

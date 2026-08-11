@@ -219,6 +219,20 @@ struct HomeView: View {
         }
     }
 
+    // MARK: Goal toggle
+
+    private func toggle(_ goal: AssignedGoal) {
+        withAnimation(StepINMotion.springStandard) {
+            if goal.status == .completed {
+                goal.status = .toDo
+                goal.completedAt = nil
+            } else {
+                goal.status = .completed
+                goal.completedAt = .now
+            }
+        }
+    }
+
     // MARK: Start interview
 
     private func startInterview() {
@@ -277,7 +291,7 @@ struct HomeView: View {
                             Array(recentGoals.enumerated()),
                             id: \.element.id
                         ) { index, goal in
-                            HomeGoalRow(goal: goal)
+                            HomeGoalRow(goal: goal, onToggle: { toggle(goal) })
                             if index < recentGoals.count - 1 {
                                 Divider()
                                     .background(StepINColor.divider)
@@ -565,16 +579,21 @@ private struct HomeInterviewHeroCard: View {
 
 private struct HomeGoalRow: View {
     let goal: AssignedGoal
+    let onToggle: () -> Void
 
     var body: some View {
         HStack(spacing: StepINSpacing.sm) {
-            Image(systemName: goal.status == .completed
-                  ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 22))
-                .foregroundColor(
-                    goal.status == .completed
-                        ? StepINColor.success : StepINColor.textTertiary
-                )
+            Button(action: onToggle) {
+                Image(systemName: goal.status == .completed
+                      ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 22))
+                    .foregroundColor(
+                        goal.status == .completed
+                            ? StepINColor.success : StepINColor.textTertiary
+                    )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(goal.status == .completed ? "Mark goal as to do" : "Mark goal as completed")
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(goal.title)
@@ -588,7 +607,6 @@ private struct HomeGoalRow: View {
 
             Spacer(minLength: 0)
         }
-        .accessibilityElement(children: .combine)
     }
 }
 

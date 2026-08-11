@@ -13,8 +13,11 @@ struct GoalsView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \AssignedGoal.createdAt, order: .reverse)
     private var allGoals: [AssignedGoal]
+    @Query(sort: \InterviewRecord.startedAt, order: .reverse)
+    private var allInterviews: [InterviewRecord]
 
     @State private var goalPendingDeletion: AssignedGoal?
+    @State private var goalSourceDestination: InterviewRecord?
 
     /// Non-deleted goals, incomplete first then completed.
     private var goals: [AssignedGoal] {
@@ -51,7 +54,9 @@ struct GoalsView: View {
                                 GoalCard(
                                     goal: goal,
                                     onToggle: { toggle(goal) },
-                                    onDelete: { goalPendingDeletion = goal }
+                                    onDelete: { goalPendingDeletion = goal },
+                                    onSourceTap: allInterviews.first(where: { $0.id == goal.interviewID })
+                                        .map { interview in { goalSourceDestination = interview } }
                                 )
                             }
                         }
@@ -63,6 +68,9 @@ struct GoalsView: View {
             }
             .background(StepINScreenBackground())
             .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(item: $goalSourceDestination) { interview in
+                InterviewDetailsView(interview: interview)
+            }
             .alert(
                 "Delete this goal?",
                 isPresented: Binding(
@@ -105,6 +113,7 @@ struct GoalCard: View {
     let goal: AssignedGoal
     let onToggle: () -> Void
     let onDelete: () -> Void
+    var onSourceTap: (() -> Void)? = nil
 
     private var isCompleted: Bool { goal.status == .completed }
 
@@ -127,18 +136,7 @@ struct GoalCard: View {
                         .strikethrough(isCompleted, color: StepINColor.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    HStack(spacing: StepINSpacing.xs) {
-                        Image(systemName: "waveform")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(StepINColor.primary.opacity(0.85))
-                            .frame(width: 18, height: 18)
-                            .background(StepINColor.primarySoft.opacity(0.65), in: Circle())
-
-                        Text(goal.sourceLabel)
-                            .font(StepINFont.caption)
-                            .foregroundStyle(StepINColor.textTertiary)
-                            .lineLimit(1)
-                    }
+                    sourceRow
                 }
                 .opacity(isCompleted ? 0.6 : 1)
 
@@ -153,6 +151,37 @@ struct GoalCard: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Delete goal")
             }
+        }
+    }
+
+    @ViewBuilder
+    private var sourceRowContent: some View {
+        Image(systemName: "waveform")
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundColor(StepINColor.primary.opacity(0.85))
+            .frame(width: 18, height: 18)
+            .background(StepINColor.primarySoft.opacity(0.65), in: Circle())
+        Text(goal.sourceLabel)
+            .font(StepINFont.caption)
+            .foregroundStyle(StepINColor.textTertiary)
+            .lineLimit(1)
+        if onSourceTap != nil {
+            Image(systemName: "chevron.right")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(StepINColor.textTertiary)
+        }
+    }
+
+    @ViewBuilder
+    private var sourceRow: some View {
+        if let onSourceTap {
+            Button(action: onSourceTap) {
+                HStack(spacing: StepINSpacing.xs) { sourceRowContent }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open source interview: \(goal.sourceLabel)")
+        } else {
+            HStack(spacing: StepINSpacing.xs) { sourceRowContent }
         }
     }
 

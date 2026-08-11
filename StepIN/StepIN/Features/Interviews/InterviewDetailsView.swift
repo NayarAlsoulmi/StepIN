@@ -29,6 +29,18 @@ struct InterviewDetailsView: View {
         allGoals.filter { $0.interviewID == interview.id && $0.status != .deleted }
     }
 
+    private func toggle(_ goal: AssignedGoal) {
+        withAnimation(StepINMotion.springStandard) {
+            if goal.status == .completed {
+                goal.status = .toDo
+                goal.completedAt = nil
+            } else {
+                goal.status = .completed
+                goal.completedAt = .now
+            }
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: StepINSpacing.xl) {
@@ -129,8 +141,13 @@ struct InterviewDetailsView: View {
                         ForEach(goals) { goal in
                             StepINCard {
                                 HStack(spacing: StepINSpacing.sm) {
-                                    Image(systemName: goal.status == .completed ? "checkmark.circle.fill" : "circle")
-                                        .foregroundColor(goal.status == .completed ? StepINColor.success : StepINColor.textTertiary)
+                                    Button { toggle(goal) } label: {
+                                        Image(systemName: goal.status == .completed ? "checkmark.circle.fill" : "circle")
+                                            .font(.system(size: 22))
+                                            .foregroundColor(goal.status == .completed ? StepINColor.success : StepINColor.textTertiary)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityLabel(goal.status == .completed ? "Mark goal as to do" : "Mark goal as completed")
                                     Text(goal.title)
                                         .font(StepINFont.body2)
                                         .foregroundColor(StepINColor.textPrimary)
