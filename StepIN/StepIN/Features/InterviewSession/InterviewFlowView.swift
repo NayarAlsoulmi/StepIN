@@ -47,14 +47,15 @@ struct InterviewFlowView: View {
                 }
 
             case .session(let config):
-                InterviewSessionView(configuration: config) { transcript, isPartial, completedCount in
+                InterviewSessionView(configuration: config) { transcript, isPartial, completedCount, metrics in
                     withAnimation(StepINMotion.fade) { stage = .analyzing }
                     Task {
                         await analyzeAndSave(
                             config: config,
                             transcript: transcript,
                             isPartial: isPartial,
-                            completedCount: completedCount
+                            completedCount: completedCount,
+                            metrics: metrics
                         )
                     }
                 }
@@ -103,7 +104,8 @@ struct InterviewFlowView: View {
         config: InterviewConfiguration,
         transcript: [TranscriptEntry],
         isPartial: Bool,
-        completedCount: Int
+        completedCount: Int,
+        metrics: VoiceDeliveryMetrics
     ) async {
         #if DEBUG
         let analysisT0 = Date.now
@@ -165,7 +167,8 @@ struct InterviewFlowView: View {
                 configuration: config,
                 transcript: transcript,
                 isPartial: isPartial,
-                completedQuestionCount: completedCount
+                completedQuestionCount: completedCount,
+                deliveryMetrics: metrics
             )
             if result != nil { break }
         }

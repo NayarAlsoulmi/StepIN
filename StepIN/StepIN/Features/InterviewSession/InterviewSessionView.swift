@@ -14,7 +14,7 @@ struct InterviewSessionView: View {
 
     init(
         configuration: InterviewConfiguration,
-        onFinished: @escaping (_ transcript: [TranscriptEntry], _ isPartial: Bool, _ completedCount: Int) -> Void
+        onFinished: @escaping (_ transcript: [TranscriptEntry], _ isPartial: Bool, _ completedCount: Int, _ metrics: VoiceDeliveryMetrics) -> Void
     ) {
         _viewModel = State(initialValue: InterviewSessionViewModel(
             configuration: configuration,
@@ -228,6 +228,6 @@ struct InterviewSessionView: View {
             questionCount: .five,
             candidateFirstName: "Nayar"
         ),
-        onFinished: { _, _, _ in }
+        onFinished: { _, _, _, _ in }
     )
 }

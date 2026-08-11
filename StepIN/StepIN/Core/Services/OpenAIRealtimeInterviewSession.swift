@@ -26,6 +26,16 @@ final class OpenAIRealtimeInterviewSession {
     private enum InterviewLanguage: String, Equatable {
         case english = "English"
         case arabic = "Arabic"
+
+        /// ISO 639-1 code passed to the transcription model to pin language detection.
+        /// Prevents per-utterance auto-detection from misclassifying short English
+        /// words as another language (e.g. "Zero" → "Yero" via Turkish phoneme match).
+        var transcriptionLanguageCode: String {
+            switch self {
+            case .english: return "en"
+            case .arabic: return "ar"
+            }
+        }
     }
 
     private enum AssistantTurnPurpose: Equatable {
@@ -51,7 +61,21 @@ final class OpenAIRealtimeInterviewSession {
     private let onTranscriptEntry: (TranscriptEntry) -> Void
     private let onCompleted: (_ isPartial: Bool, _ completedQuestionCount: Int) -> Void
     private let onError: (RealtimeSessionError) -> Void
+    /// Called once per logical candidate turn (at response.create) with the accumulated
+    /// transcript, and again if a late transcription.completed arrives afterwards.
+    /// The ViewModel creates or updates a single entry per turnID.
+    private let onCandidateTranscript: (_ turnID: UUID, _ text: String) -> Void
     private var primaryInterviewLanguage: InterviewLanguage = .english
+
+    // Lazily constructed so the callback closure can capture self safely after
+    // all stored properties are initialized (standard Swift two-phase init).
+    private lazy var localAnalyzer: LocalVoiceAnalyzer = LocalVoiceAnalyzer(
+        onSpeechResumed: { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.cancelPendingCandidateCompletion()
+            }
+        }
+    )
 
     private var webSocketTask: URLSessionWebSocketTask?
     private var receiveTask: Task<Void, Never>?
@@ -85,12 +109,30 @@ final class OpenAIRealtimeInterviewSession {
     private var currentAssistantTurnPurpose: AssistantTurnPurpose = .interview
     private var didStartIntroductionAudio = false
 
+    // MARK: — Candidate turn / transcript identity
+
+    /// Local UUID for the current logical candidate answer turn.
+    /// Created at speech_started, cleared when response.create is dispatched.
+    /// A resumed turn (candidate pauses then continues) reuses the same UUID.
+    private var activeCandidateTurnID: UUID?
+    /// Maps API item_id strings → local candidate turn UUIDs.
+    /// Kept across turns so late transcription.completed events (arriving after
+    /// response.create) can still be matched to the correct transcript entry.
+    private var itemIDToCandidateTurnID: [String: UUID] = [:]
+    /// Accumulated authoritative transcript texts per turn, one element per
+    /// audio item committed by the server VAD (in arrival order).
+    private var candidateTranscriptAccumulator: [UUID: [String]] = [:]
+    /// Turn UUIDs for which onCandidateTranscript has been called at least once.
+    /// Routes subsequent transcription.completed events to the update path.
+    private var emittedCandidateTurnIDs: Set<UUID> = []
+
     init(
         configuration: InterviewConfiguration,
         apiKey: String,
         onStateChange: @escaping (RuntimeState) -> Void,
         onInterviewerText: @escaping (String) -> Void,
         onTranscriptEntry: @escaping (TranscriptEntry) -> Void,
+        onCandidateTranscript: @escaping (_ turnID: UUID, _ text: String) -> Void,
         onCompleted: @escaping (_ isPartial: Bool, _ completedQuestionCount: Int) -> Void,
         onError: @escaping (RealtimeSessionError) -> Void
     ) {
@@ -99,6 +141,7 @@ final class OpenAIRealtimeInterviewSession {
         self.onStateChange = onStateChange
         self.onInterviewerText = onInterviewerText
         self.onTranscriptEntry = onTranscriptEntry
+        self.onCandidateTranscript = onCandidateTranscript
         self.onCompleted = onCompleted
         self.onError = onError
     }
@@ -126,6 +169,9 @@ final class OpenAIRealtimeInterviewSession {
         isPaused = false
         try? audioEngine.start()
         playerNode.play()
+        // Reset silence tracking so that user-initiated pause time is not
+        // counted as a candidate delivery pause in the voice metrics.
+        Task { await localAnalyzer.resetSilenceTracking() }
         onStateChange(.listening)
     }
 
@@ -148,6 +194,11 @@ final class OpenAIRealtimeInterviewSession {
         complete(isPartial: countedQuestionCount < configuration.questionCount.rawValue)
     }
 
+    func collectDeliveryMetrics(transcript: [TranscriptEntry]) async -> VoiceDeliveryMetrics {
+        let fillerCount = VoiceDeliveryMetrics.countFillerWords(in: transcript)
+        return await localAnalyzer.generateMetrics(fillerWordCount: fillerCount)
+    }
+
     func stop() {
         candidateCompletionTask?.cancel()
         candidateCompletionTask = nil
@@ -164,6 +215,10 @@ final class OpenAIRealtimeInterviewSession {
         uploadedCandidateAudioDurationMs = 0
         candidateResponseInFlight = false
         serverVADStoppedCurrentTurn = false
+        activeCandidateTurnID = nil
+        itemIDToCandidateTurnID = [:]
+        candidateTranscriptAccumulator = [:]
+        emittedCandidateTurnIDs = []
         hasDeliveredIntroduction = false
         currentAssistantTurnPurpose = .interview
         didStartIntroductionAudio = false
@@ -210,7 +265,8 @@ final class OpenAIRealtimeInterviewSession {
                             "interrupt_response": false
                         ],
                         "transcription": [
-                            "model": "gpt-4o-mini-transcribe"
+                            "model": "gpt-4o-mini-transcribe",
+                            "language": primaryInterviewLanguage.transcriptionLanguageCode
                         ]
                     ],
                     "output": [
@@ -273,6 +329,7 @@ final class OpenAIRealtimeInterviewSession {
         switch type {
         case "input_audio_buffer.speech_started":
             cancelPendingCandidateCompletion()
+            beginCandidateTurn(itemID: object["item_id"] as? String)
             if !assistantAudioActive {
                 candidateResponseInFlight = false
                 serverVADStoppedCurrentTurn = false
@@ -285,11 +342,10 @@ final class OpenAIRealtimeInterviewSession {
                 onStateChange(.listening)
             }
         case "conversation.item.input_audio_transcription.completed":
-            if let transcript = object["transcript"] as? String {
-                appendCandidateTranscript(transcript)
-                // Transcript enriches context but must not restart the completion timer —
-                // the timer was already started when speech ended and is the timing source of truth.
-            }
+            updateCandidateTranscript(
+                itemID: object["item_id"] as? String ?? "",
+                text: object["transcript"] as? String ?? ""
+            )
         case "response.created", "response.output_item.added", "response.content_part.added":
             beginAssistantAudioTurn(purpose: currentAssistantTurnPurpose)
             if currentAssistantTurnPurpose != .introduction {
@@ -374,6 +430,10 @@ final class OpenAIRealtimeInterviewSession {
             let durationMs = Self.pcm16DurationMilliseconds(pcmData)
             Task { @MainActor [weak self] in
                 guard let self, !self.isPaused, self.isConnected, !self.assistantAudioActive else { return }
+                // Fan-out: dispatch PCM to the local analyzer concurrently with the
+                // OpenAI send so ingest latency does not add to network latency.
+                // The analyzer's serial actor executor preserves buffer order.
+                Task { await self.localAnalyzer.ingest(pcmData: pcmData) }
                 try? await self.sendEvent(["type": "input_audio_buffer.append", "audio": base64])
                 self.uploadedCandidateAudioDurationMs += durationMs
             }
@@ -473,6 +533,25 @@ final class OpenAIRealtimeInterviewSession {
         serverVADStoppedCurrentTurn = false
         beginAssistantAudioTurn(purpose: .interview)
         do {
+            // Emit exactly one candidate transcript entry for this logical turn.
+            // Joins all transcription.completed texts received since speech_started.
+            // Marks the turn as emitted so any late-arriving transcription.completed
+            // event will update the existing entry rather than append a new one.
+            if let turnID = activeCandidateTurnID {
+                let parts = candidateTranscriptAccumulator[turnID] ?? []
+                let accumulated = parts.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+                let textToEmit = accumulated.isEmpty
+                    ? candidateTextBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
+                    : accumulated
+                emittedCandidateTurnIDs.insert(turnID)
+                if !textToEmit.isEmpty {
+                    onCandidateTranscript(turnID, textToEmit)
+                }
+                activeCandidateTurnID = nil
+            }
+            // Notify the analyzer that this candidate turn is complete before
+            // sending response.create, so the turn boundary is captured accurately.
+            await localAnalyzer.markTurnComplete()
             try await sendEvent(["type": "response.create"])
             onStateChange(.thinking)
         } catch {
@@ -490,11 +569,22 @@ final class OpenAIRealtimeInterviewSession {
             primaryInterviewLanguage: primaryInterviewLanguage.rawValue,
             includeOpeningInstructions: false
         )
+        // Include the transcription language so a mid-session language switch
+        // (e.g. candidate requests Arabic) also pins the transcription model
+        // to the new language rather than reverting to auto-detection.
         try await sendEvent([
             "type": "session.update",
             "session": [
                 "type": "realtime",
-                "instructions": prompt
+                "instructions": prompt,
+                "audio": [
+                    "input": [
+                        "transcription": [
+                            "model": "gpt-4o-mini-transcribe",
+                            "language": primaryInterviewLanguage.transcriptionLanguageCode
+                        ]
+                    ]
+                ]
             ]
         ])
     }
@@ -705,13 +795,61 @@ final class OpenAIRealtimeInterviewSession {
         return false
     }
 
-    // MARK: Transcript
+    // MARK: Candidate turn / transcript lifecycle
 
-    private func appendCandidateTranscript(_ text: String) {
+    /// Called when speech_started fires. Creates a new logical turn UUID when no
+    /// turn is active; otherwise records the new item_id under the existing turn
+    /// (candidate resumed after a mid-answer thinking pause, still same turn).
+    private func beginCandidateTurn(itemID: String?) {
+        if activeCandidateTurnID == nil {
+            candidateTextBuffer = ""
+            activeCandidateTurnID = UUID()
+        }
+        if let itemID, !itemID.isEmpty {
+            itemIDToCandidateTurnID[itemID] = activeCandidateTurnID!
+        }
+    }
+
+    /// Called when conversation.item.input_audio_transcription.completed fires.
+    ///
+    /// Accumulates text across all audio items belonging to the same logical turn
+    /// (each item_id maps to a turn UUID set in beginCandidateTurn). Updates
+    /// candidateTextBuffer so the semantic-completeness heuristic reflects the
+    /// current turn's content.
+    ///
+    /// If the turn was already emitted (response.create already dispatched), calls
+    /// onCandidateTranscript again so the ViewModel can update the existing bubble
+    /// in place — no new entry is created, no matter how late the event arrives.
+    private func updateCandidateTranscript(itemID: String, text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        candidateTextBuffer = trimmed
-        onTranscriptEntry(TranscriptEntry(speaker: .candidate, text: trimmed))
+
+        // Resolve which logical turn this audio item belongs to.
+        // Falls back to activeCandidateTurnID for API edge cases where
+        // speech_started did not carry an item_id.
+        let turnID: UUID
+        if let mapped = itemIDToCandidateTurnID[itemID] {
+            turnID = mapped
+        } else if let active = activeCandidateTurnID {
+            turnID = active
+            if !itemID.isEmpty { itemIDToCandidateTurnID[itemID] = turnID }
+        } else {
+            // No active turn and no mapping — transcription arrived for a turn
+            // whose item_ids were not recorded. Discard safely.
+            return
+        }
+
+        // Accumulate (each item's text is the authoritative final for that item).
+        var parts = candidateTranscriptAccumulator[turnID] ?? []
+        parts.append(trimmed)
+        candidateTranscriptAccumulator[turnID] = parts
+        candidateTextBuffer = parts.joined(separator: " ")
+
+        // If response.create was already dispatched for this turn, forward the
+        // now-complete text so the ViewModel updates the existing entry in place.
+        if emittedCandidateTurnIDs.contains(turnID) {
+            onCandidateTranscript(turnID, candidateTextBuffer)
+        }
     }
 
     private func flushAssistantTranscriptIfNeeded() {

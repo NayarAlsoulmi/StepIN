@@ -74,6 +74,7 @@ protocol InterviewAnalysisServiceProtocol: AnyObject {
         configuration: InterviewConfiguration,
         transcript: [TranscriptEntry],
         isPartial: Bool,
-        completedQuestionCount: Int
+        completedQuestionCount: Int,
+        deliveryMetrics: VoiceDeliveryMetrics
     ) async throws -> AnalysisResult
 }

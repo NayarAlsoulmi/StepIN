@@ -21,7 +21,8 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
         configuration: InterviewConfiguration,
         transcript: [TranscriptEntry],
         isPartial: Bool,
-        completedQuestionCount: Int
+        completedQuestionCount: Int,
+        deliveryMetrics: VoiceDeliveryMetrics
     ) async throws -> AnalysisResult {
         var request = URLRequest(url: URL(string: "https://api.openai.com/v1/responses")!)
         request.httpMethod = "POST"
@@ -33,7 +34,7 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
             "input": [
                 [
                     "role": "system",
-                    "content": analysisInstructions(for: configuration)
+                    "content": analysisInstructions(for: configuration, metrics: deliveryMetrics)
                 ],
                 [
                     "role": "user",
@@ -78,7 +79,15 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
         return result
     }
 
-    private func analysisInstructions(for configuration: InterviewConfiguration) -> String {
+    private func analysisInstructions(for configuration: InterviewConfiguration, metrics: VoiceDeliveryMetrics) -> String {
+        var instructions = coreAnalysisInstructions(for: configuration)
+        if let deliveryBlock = deliveryEvidenceBlock(from: metrics) {
+            instructions += "\n\n" + deliveryBlock
+        }
+        return instructions
+    }
+
+    private func coreAnalysisInstructions(for configuration: InterviewConfiguration) -> String {
         """
         You are StepIN's interview evaluator. Return only the requested JSON object that matches the schema.
 
@@ -132,6 +141,46 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
         - Return summary as an empty string.
         - Never expose internal notes, evidence IDs, coverage maps, hidden weights, raw voice statistics, chain-of-thought, or internal reasoning.
         """
+    }
+
+    /// Builds a delivery evidence block when sufficient on-device audio data exists.
+    /// Returns nil when there is not enough candidate speech to derive useful signals.
+    private func deliveryEvidenceBlock(from metrics: VoiceDeliveryMetrics) -> String? {
+        guard metrics.hasEnoughEvidence else { return nil }
+
+        var lines = [
+            "Voice delivery evidence (on-device measurements — observable signals only, not psychological state):"
+        ]
+
+        let speakingMin = Int(metrics.totalSpeakingSeconds / 60)
+        let speakingSec = Int(metrics.totalSpeakingSeconds.truncatingRemainder(dividingBy: 60))
+        let durationLabel = speakingMin > 0 ? "\(speakingMin)m \(speakingSec)s" : "\(speakingSec)s"
+        lines.append("- Candidate speaking time: \(durationLabel)")
+        lines.append("- Speaking/silence ratio: \(Int(metrics.speakingRatio * 100))% speaking")
+        lines.append("- Meaningful pauses (>1.5 s): \(metrics.pauseCount)")
+
+        if metrics.pauseCount > 0 {
+            lines.append("- Average pause: \(String(format: "%.1f", metrics.averagePauseDurationMs / 1_000))s")
+            lines.append("- Longest pause: \(String(format: "%.1f", metrics.longestPauseDurationMs / 1_000))s")
+        }
+
+        if metrics.fillerWordCount >= 3 {
+            lines.append("- Detected filler-word occurrences: \(metrics.fillerWordCount)")
+        }
+
+        lines += [
+            "",
+            "Delivery feedback rules:",
+            "- Use delivery signals only as supporting communication evidence. Answer content and reasoning remain primary.",
+            "- Describe observable delivery behavior, never psychological state. Do not say the candidate was nervous, anxious, stressed, or unconfident.",
+            "- A delivery Strength or Area to Improve should appear only when the signal is clear, significant, and useful for the candidate.",
+            "- Natural thinking pauses are not a weakness. Only flag pause patterns that clearly affect communication flow.",
+            "- Filler words are supporting context, not automatic weaknesses — only mention if the count is high relative to answer length.",
+            "- Do not generate a delivery Strength or Area simply because a metric exists. Significance matters.",
+            "- Delivery feedback must follow the same 6–12 word target length and direct style as all other Strengths and Areas."
+        ]
+
+        return lines.joined(separator: "\n")
     }
 
     private func transcriptText(_ transcript: [TranscriptEntry], isPartial: Bool, completedQuestionCount: Int) -> String {
