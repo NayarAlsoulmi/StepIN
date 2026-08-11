@@ -114,32 +114,51 @@ struct ResultsView: View {
                     .clipShape(Capsule())
             }
 
-            ZStack {
-                Circle()
-                    .stroke(StepINColor.primarySoft, lineWidth: 12)
-                Circle()
-                    .trim(from: 0, to: ringProgress)
-                    .stroke(StepINColor.primary, style: StrokeStyle(lineWidth: 12, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                VStack(spacing: 2) {
-                    Text("\(interview.overallScore ?? 0)")
-                        .font(.system(size: 44, weight: .bold, design: .rounded))
+            if let score = interview.overallScore {
+                ZStack {
+                    Circle()
+                        .stroke(StepINColor.primarySoft, lineWidth: 12)
+                    Circle()
+                        .trim(from: 0, to: ringProgress)
+                        .stroke(StepINColor.primary, style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                    VStack(spacing: 2) {
+                        Text("\(score)")
+                            .font(.system(size: 44, weight: .bold, design: .rounded))
+                            .foregroundColor(StepINColor.textPrimary)
+                        Text("/ 100")
+                            .font(StepINFont.body3)
+                            .foregroundColor(StepINColor.textSecondary)
+                    }
+                }
+                .frame(width: 150, height: 150)
+                .accessibilityElement()
+                .accessibilityLabel("Overall score \(score) out of 100")
+                .onAppear {
+                    let target = CGFloat(score) / 100
+                    if reduceMotion {
+                        ringProgress = target
+                    } else {
+                        withAnimation(.easeOut(duration: 0.9)) { ringProgress = target }
+                    }
+                }
+            } else {
+                VStack(spacing: StepINSpacing.sm) {
+                    Image(systemName: "minus.circle")
+                        .font(.system(size: 48))
+                        .foregroundColor(StepINColor.textTertiary)
+                    Text("Not Evaluated")
+                        .font(StepINFont.h3)
                         .foregroundColor(StepINColor.textPrimary)
-                    Text("/ 100")
-                        .font(StepINFont.body3)
+                    Text("No meaningful interview performance was recorded.")
+                        .font(StepINFont.bodyRegular)
                         .foregroundColor(StepINColor.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, StepINSpacing.md)
                 }
-            }
-            .frame(width: 150, height: 150)
-            .accessibilityElement()
-            .accessibilityLabel("Overall score \(interview.overallScore ?? 0) out of 100")
-            .onAppear {
-                let target = CGFloat(interview.overallScore ?? 0) / 100
-                if reduceMotion {
-                    ringProgress = target
-                } else {
-                    withAnimation(.easeOut(duration: 0.9)) { ringProgress = target }
-                }
+                .frame(minHeight: 150)
+                .accessibilityElement()
+                .accessibilityLabel("Not evaluated — no meaningful interview performance was recorded")
             }
         }
         .padding(.top, StepINSpacing.lg)

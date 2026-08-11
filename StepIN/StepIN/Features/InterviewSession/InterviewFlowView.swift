@@ -140,6 +140,19 @@ struct InterviewFlowView: View {
         print("[StepIN.AnalysisTiming] Initial transcript persistence completed: \(Date.now.timeIntervalSince(analysisT0))s")
         #endif
 
+        // Evidence-sufficiency gate: CV content is interview context, not performance
+        // evidence. If the candidate produced no meaningful answers (< 10 total words),
+        // skip analysis entirely so the CV cannot generate a fabricated score.
+        let candidateWordCount = transcript
+            .filter { $0.speaker == .candidate }
+            .reduce(0) { $0 + $1.text.split(separator: " ").count }
+        guard candidateWordCount >= 10 else {
+            interview.status = .completed
+            try? context.save()
+            withAnimation(StepINMotion.fade) { stage = .results(interview, []) }
+            return
+        }
+
         // 2. Generate the analysis (retry once per spec).
         let service: InterviewAnalysisServiceProtocol = if let apiKey = OpenAIConfiguration.apiKey {
             OpenAIAnalysisService(apiKey: apiKey)

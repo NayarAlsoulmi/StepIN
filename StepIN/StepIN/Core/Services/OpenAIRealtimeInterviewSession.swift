@@ -74,8 +74,8 @@ final class OpenAIRealtimeInterviewSession {
     private var candidateCompletionTask: Task<Void, Never>?
     private var openingQuestionTask: Task<Void, Never>?
     private let candidateTurnCompletionGrace: Duration = .seconds(2.0)
-    private let semanticallyCompleteTurnDelay: Duration = .milliseconds(700)
-    private let defaultTurnCompletionDelay: Duration = .milliseconds(1200)
+    private let semanticallyCompleteTurnDelay: Duration = .milliseconds(500)
+    private let defaultTurnCompletionDelay: Duration = .milliseconds(800)
     private let openingQuestionBeat: Duration = .milliseconds(550)
     private var uploadedCandidateAudioDurationMs: Double = 0
     private var candidateResponseInFlight = false
@@ -205,7 +205,7 @@ final class OpenAIRealtimeInterviewSession {
                         "format": ["type": "audio/pcm", "rate": 24000],
                         "turn_detection": [
                             "type": "semantic_vad",
-                            "eagerness": "low",
+                            "eagerness": "medium",
                             "create_response": false,
                             "interrupt_response": false
                         ],
@@ -287,9 +287,8 @@ final class OpenAIRealtimeInterviewSession {
         case "conversation.item.input_audio_transcription.completed":
             if let transcript = object["transcript"] as? String {
                 appendCandidateTranscript(transcript)
-                if candidateCompletionTask != nil, !assistantAudioActive {
-                    scheduleCandidateCompletion()
-                }
+                // Transcript enriches context but must not restart the completion timer —
+                // the timer was already started when speech ended and is the timing source of truth.
             }
         case "response.created", "response.output_item.added", "response.content_part.added":
             beginAssistantAudioTurn(purpose: currentAssistantTurnPurpose)
@@ -544,10 +543,14 @@ final class OpenAIRealtimeInterviewSession {
         do {
             try await sendInProgressSessionUpdate()
             beginAssistantAudioTurn(purpose: .interview)
+            let hasCVContext = configuration.resolvedCVText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            let firstQuestionInstruction = hasCVContext
+                ? "Ask the first real counted interview question now in English. Do not greet again, do not mention question numbers, and do not ask any separate starter question. When the candidate's CV contains a project, experience, or skill directly relevant to this role, opening with a question grounded in that specific detail is strongly preferred over a generic opener — but do not announce that you read their CV."
+                : "Ask the first real counted interview question now in English. Do not greet again, do not mention question numbers, and do not ask any separate starter question."
             try await sendEvent([
                 "type": "response.create",
                 "response": [
-                    "instructions": "Ask the first real counted interview question now in English. Do not greet again, do not mention question numbers, and do not ask any separate starter question."
+                    "instructions": firstQuestionInstruction
                 ]
             ])
             onStateChange(.thinking)

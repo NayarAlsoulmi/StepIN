@@ -97,6 +97,7 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
         - If the candidate skipped or refused a counted question, score that answered item as zero evidence for that question.
         - Do not penalize untested capabilities. Treat unobserved dimensions as insufficient evidence, not weaknesses.
         - Prefer recurring patterns over isolated mistakes.
+        - The CV provides context for interview questions only. Skills, projects, experience, and certifications listed on the CV do not constitute performance evidence and must not generate scores, strengths, weaknesses, or goals. Only the candidate's actual spoken answers in the transcript are performance evidence.
 
         Scoring rules:
         - overallScore must be 0-100 and reflect general performance across dimensions actually observed.
@@ -106,14 +107,15 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
         - For confidence, combine answer content with reliable delivery evidence from the transcript when available, but do not infer internal emotional state.
 
         Feedback rules:
-        - Strengths: target 4, return fewer when evidence is insufficient. Each must express one clear evidence-backed strength in concise, natural language.
-        - Strengths should usually be 4-10 words, but do not force identical length. Short supported insights are allowed when they are meaningful.
-        - Avoid filler such as "Demonstrates", "Shows the ability to", "Has the capability to", or "Provides evidence of".
-        - Prefer direct wording such as "Clear Java foundation", "Comfortable using Python for AI work", "Explains project decisions clearly", or "Uses relevant teamwork examples".
-        - Areas to Improve: up to 4. Each must identify one evidence-backed weakness clearly and directly.
-        - Areas should usually be 4-10 words, with natural variation. They should name the improvement area, not explain the full solution.
-        - Avoid filler such as "Would benefit from", "Could improve by", "In future interviews", "Consider working on", or "Try to".
-        - Prefer direct wording such as "Add stronger project examples", "Quantify your impact", "Mention relevant tools and frameworks", or "Clarify your role in team projects".
+        - Strengths: target 4, return fewer when evidence is insufficient. Each must express one clear evidence-backed strength in specific, natural language.
+        - Strengths should usually be 6-12 words. Do not compress to a short label. Two lines are acceptable when they add clarity; padding is not.
+        - Each strength must be grounded in the candidate's actual interview answers, not CV content alone.
+        - Avoid opening filler such as "Demonstrates", "Shows the ability to", "Has the capability to", or "Provides evidence of". Write the strength directly.
+        - Target this level of specificity: "Demonstrated strong practical experience with AI projects", "Explained technical decisions clearly with relevant examples", "Showed solid practical experience developing with SwiftUI". Do not copy these — generate from the actual interview.
+        - Areas to Improve: up to 4. Each must identify one evidence-backed improvement area clearly and directly.
+        - Areas should usually be 6-12 words. Do not compress to a vague label. Two lines are acceptable when they add specificity; padding is not.
+        - Avoid opener filler such as "Would benefit from", "Could improve by", "In future interviews", "Consider working on", or "Try to".
+        - Target this level of specificity: "Provide more detail when explaining technical implementation", "Structure longer answers with a clearer sequence", "Include measurable outcomes when discussing project impact". Do not copy these — generate from the actual interview.
         - Goals: up to 3. Each goal must derive directly from a supported Area to Improve and be specific, achievable, and connected to this interview.
         - Each goal string must be one short, meaningful action statement that answers only: "What should this candidate improve?"
         - Prefer 5-9 words. Never exceed 10 words.
