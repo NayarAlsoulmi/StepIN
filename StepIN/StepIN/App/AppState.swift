@@ -8,6 +8,7 @@
 
 import SwiftUI
 
+/// Bridge used by App Intents to request navigation in the running app.
 enum StepINNavigationBridge {
     nonisolated static let startInterviewRequestIDKey = "stepin.pendingStartInterviewRequestID"
     nonisolated static let startInterviewNotification = Notification.Name("stepin.startInterviewRequested")

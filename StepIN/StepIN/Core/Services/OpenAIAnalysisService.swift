@@ -139,6 +139,18 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
         - Do not recommend STAR for technical knowledge, ML knowledge, iOS knowledge, design reasoning, architecture, problem solving, confidence, concise answers, CV clarity, tool knowledge, decision-making, company motivation, or domain knowledge unless the actual weakness is behavioral story structure.
         - For technical or role-specific weaknesses, make the goal directly address the real gap, such as explaining decisions, trade-offs, outcomes, implementation reasoning, research methods, or domain concepts more clearly.
         - Return summary as an empty string.
+
+        Voice classification evidence (per-answer, when present in transcript):
+        - Each candidate response may be followed by a [Voice classification: Label, confidence X%] line.
+        - This is on-device Core ML evidence of vocal delivery during that answer. Treat it as supporting evidence alongside the spoken content; answer quality remains the primary signal.
+        - Use a classification as a meaningful signal only when confidence ≥ 75%. At 60–74% confidence, use it cautiously only when the transcript text also supports it. Below 60%, ignore it.
+        - Connect delivery observations to what the candidate was discussing: "maintained a calm delivery while explaining your project approach" rather than the generic "You were calm."
+        - When most answers share the same classification, recognize the overall pattern: "maintained a composed delivery throughout the interview."
+        - When one answer differs substantially from the others, note it contextually: "delivery became less steady while discussing a more complex topic."
+        - Never mention Core ML, the classification label name, or the confidence percentage in user-facing feedback.
+        - Never infer anxiety, stress, nervousness, or any psychological or medical state from voice data.
+        - Use observable coaching language only: "maintained a calm, composed delivery", "sounded steady", "delivery became less controlled", "could benefit from pausing before complex questions".
+        - Only produce a voice-delivery Strength or Area to Improve when the evidence is meaningful and useful. Do not force delivery feedback simply because voice data is present.
         - Never expose internal notes, evidence IDs, coverage maps, hidden weights, raw voice statistics, chain-of-thought, or internal reasoning.
         """
     }
@@ -184,9 +196,16 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
     }
 
     private func transcriptText(_ transcript: [TranscriptEntry], isPartial: Bool, completedQuestionCount: Int) -> String {
-        let lines = transcript.map { entry in
+        let lines = transcript.flatMap { entry -> [String] in
             let speaker = entry.speaker == .candidate ? "Candidate" : "AI Interviewer"
-            return "\(speaker): \(entry.text)"
+            var parts = ["\(speaker): \(entry.text)"]
+            if entry.speaker == .candidate,
+               let voice = entry.voiceResult,
+               voice.confidence >= 0.60 {
+                let pct = Int((voice.confidence * 100).rounded())
+                parts.append("  [Voice classification: \(voice.label), confidence \(pct)%]")
+            }
+            return parts
         }.joined(separator: "\n")
 
         return """

@@ -1,9 +1,7 @@
 import AppIntents
 
 struct StepINShortcuts: AppShortcutsProvider {
-    
     static var appShortcuts: [AppShortcut] {
-        
         AppShortcut(
             intent: StartInterviewIntent(),
             phrases: [

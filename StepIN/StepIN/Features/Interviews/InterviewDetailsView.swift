@@ -14,6 +14,8 @@ struct InterviewDetailsView: View {
 
     @Query private var allGoals: [AssignedGoal]
     @State private var segment: Segment
+    @State private var analysisSearchText = ""
+    @State private var chatSearchText = ""
 
     init(interview: InterviewRecord, initialSegment: Segment = .analysis) {
         self.interview = interview
@@ -29,9 +31,83 @@ struct InterviewDetailsView: View {
         allGoals.filter { $0.interviewID == interview.id && $0.status != .deleted }
     }
 
+    private var shouldShowSearchBar: Bool {
+        switch segment {
+        case .analysis:
+            interview.analysis != nil
+        case .chat:
+            !interview.visibleTranscript.isEmpty
+        }
+    }
+
+    @ViewBuilder
+    private var detailsSearchBar: some View {
+        switch segment {
+        case .analysis:
+            InterviewDetailsSearchBar(text: $analysisSearchText, prompt: "Search analysis")
+        case .chat:
+            InterviewDetailsSearchBar(text: $chatSearchText, prompt: "Search chat history")
+        }
+    }
+
+    private func normalizedQuery(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func matches(_ text: String, query: String) -> Bool {
+        query.isEmpty || text.localizedCaseInsensitiveContains(query)
+    }
+
+    private func filteredCategoryScores(_ analysis: InterviewAnalysis, query: String) -> [(category: PerformanceCategory, score: Int)] {
+        if matches("Performance", query: query) {
+            return analysis.categoryScores
+        }
+
+        return analysis.categoryScores.filter { item in
+            matches(item.category.rawValue, query: query) || matches(String(item.score), query: query)
+        }
+    }
+
+    private func filteredItems(_ items: [String], sectionTitle: String, query: String) -> [String] {
+        if matches(sectionTitle, query: query) {
+            return items
+        }
+
+        return items.filter { matches($0, query: query) }
+    }
+
+    private func filteredGoals(query: String) -> [AssignedGoal] {
+        if matches("Assigned Goals", query: query) {
+            return goals
+        }
+
+        return goals.filter { matches($0.title, query: query) }
+    }
+
+    private func filteredMessages(_ messages: [InterviewMessage]) -> [InterviewMessage] {
+        let query = normalizedQuery(chatSearchText)
+        return messages.filter { matches($0.text, query: query) }
+    }
+
+    private func toggle(_ goal: AssignedGoal) {
+        withAnimation(StepINMotion.springStandard) {
+            if goal.status == .completed {
+                goal.status = .toDo
+                goal.completedAt = nil
+            } else {
+                goal.status = .completed
+                goal.completedAt = .now
+            }
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: StepINSpacing.xl) {
+                if shouldShowSearchBar {
+                    detailsSearchBar
+                }
+
                 summaryHeader
 
                 Picker("Section", selection: $segment) {
@@ -97,48 +173,70 @@ struct InterviewDetailsView: View {
     @ViewBuilder
     private var analysisSection: some View {
         if let analysis = interview.analysis {
-            VStack(alignment: .leading, spacing: StepINSpacing.xl) {
-                VStack(alignment: .leading, spacing: StepINSpacing.sm) {
-                    StepINSectionHeader(title: "Performance")
-                    StepINCard {
-                        VStack(spacing: StepINSpacing.md) {
-                            ForEach(analysis.categoryScores, id: \.category) { item in
-                                PerformanceMetricRow(category: item.category, score: item.score)
+            let query = normalizedQuery(analysisSearchText)
+            let categoryScores = filteredCategoryScores(analysis, query: query)
+            let strengths = filteredItems(analysis.strengths, sectionTitle: "Strengths", query: query)
+            let areasToImprove = filteredItems(analysis.areasToImprove, sectionTitle: "Areas to Improve", query: query)
+            let matchingGoals = filteredGoals(query: query)
+            let hasResults = !categoryScores.isEmpty || !strengths.isEmpty || !areasToImprove.isEmpty || !matchingGoals.isEmpty
+
+            if hasResults {
+                VStack(alignment: .leading, spacing: StepINSpacing.xl) {
+                    if !categoryScores.isEmpty {
+                        VStack(alignment: .leading, spacing: StepINSpacing.sm) {
+                            StepINSectionHeader(title: "Performance")
+                            StepINCard {
+                                VStack(spacing: StepINSpacing.md) {
+                                    ForEach(categoryScores, id: \.category) { item in
+                                        PerformanceMetricRow(category: item.category, score: item.score)
+                                    }
+                                }
                             }
                         }
                     }
-                }
 
-                FeedbackListSection(
-                    title: "Strengths",
-                    items: analysis.strengths,
-                    icon: "checkmark.circle.fill",
-                    iconColor: StepINColor.success
-                )
+                    if !strengths.isEmpty {
+                        FeedbackListSection(
+                            title: "Strengths",
+                            items: strengths,
+                            icon: "checkmark.circle.fill",
+                            iconColor: StepINColor.success
+                        )
+                    }
 
-                FeedbackListSection(
-                    title: "Areas to Improve",
-                    items: analysis.areasToImprove,
-                    icon: "arrow.up.forward.circle.fill",
-                    iconColor: StepINColor.primary
-                )
+                    if !areasToImprove.isEmpty {
+                        FeedbackListSection(
+                            title: "Areas to Improve",
+                            items: areasToImprove,
+                            icon: "arrow.up.forward.circle.fill",
+                            iconColor: StepINColor.primary
+                        )
+                    }
 
-                if !goals.isEmpty {
-                    VStack(alignment: .leading, spacing: StepINSpacing.sm) {
-                        StepINSectionHeader(title: "Assigned Goals")
-                        ForEach(goals) { goal in
-                            StepINCard {
-                                HStack(spacing: StepINSpacing.sm) {
-                                    Image(systemName: goal.status == .completed ? "checkmark.circle.fill" : "circle")
-                                        .foregroundColor(goal.status == .completed ? StepINColor.success : StepINColor.textTertiary)
-                                    Text(goal.title)
-                                        .font(StepINFont.body2)
-                                        .foregroundColor(StepINColor.textPrimary)
+                    if !matchingGoals.isEmpty {
+                        VStack(alignment: .leading, spacing: StepINSpacing.sm) {
+                            StepINSectionHeader(title: "Assigned Goals")
+                            ForEach(matchingGoals) { goal in
+                                StepINCard {
+                                    HStack(spacing: StepINSpacing.sm) {
+                                        Button { toggle(goal) } label: {
+                                            Image(systemName: goal.status == .completed ? "checkmark.circle.fill" : "circle")
+                                                .font(.system(size: 22))
+                                                .foregroundColor(goal.status == .completed ? StepINColor.success : StepINColor.textTertiary)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .accessibilityLabel(goal.status == .completed ? "Mark goal as to do" : "Mark goal as completed")
+                                        Text(goal.title)
+                                            .font(StepINFont.body2)
+                                            .foregroundColor(StepINColor.textPrimary)
+                                    }
                                 }
                             }
                         }
                     }
                 }
+            } else {
+                ContentUnavailableView.search(text: analysisSearchText)
             }
         } else {
             StepINEmptyState(
@@ -153,20 +251,23 @@ struct InterviewDetailsView: View {
     @ViewBuilder
     private var chatSection: some View {
         let messages = interview.visibleTranscript
+        let matchingMessages = filteredMessages(messages)
         if messages.isEmpty {
             StepINEmptyState(
                 title: "No transcript",
                 message: "This interview has no recorded conversation."
             )
+        } else if matchingMessages.isEmpty {
+            ContentUnavailableView.search(text: chatSearchText)
         } else {
             VStack(spacing: StepINSpacing.md) {
-                ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
+                ForEach(Array(matchingMessages.enumerated()), id: \.element.id) { index, message in
                     // Robot thumbnail only at the start of an interviewer
                     // turn, so the transcript never feels crowded.
                     TranscriptRow(
                         message: message,
                         showsRobotThumbnail: message.speaker == .interviewer
-                            && (index == 0 || messages[index - 1].speaker != .interviewer)
+                            && (index == 0 || matchingMessages[index - 1].speaker != .interviewer)
                     )
                 }
             }
@@ -175,6 +276,39 @@ struct InterviewDetailsView: View {
 }
 
 // MARK: - Components
+
+private struct InterviewDetailsSearchBar: View {
+    @Binding var text: String
+    let prompt: String
+
+    var body: some View {
+        HStack(spacing: StepINSpacing.sm) {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(StepINColor.textTertiary)
+
+            TextField(prompt, text: $text)
+                .font(StepINFont.bodyRegular)
+                .foregroundColor(StepINColor.textPrimary)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+
+            if !text.isEmpty {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(StepINColor.textTertiary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear search")
+            }
+        }
+        .padding(.horizontal, StepINSpacing.md)
+        .frame(height: 46)
+        .background(Color.white.opacity(0.72))
+        .clipShape(RoundedRectangle(cornerRadius: StepINRadius.medium, style: .continuous))
+    }
+}
 
 struct PerformanceMetricRow: View {
     let category: PerformanceCategory

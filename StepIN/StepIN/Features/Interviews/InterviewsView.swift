@@ -15,20 +15,31 @@ struct InterviewsView: View {
     private var interviews: [InterviewRecord]
 
     @State private var interviewPendingDeletion: InterviewRecord?
+    @State private var selectedInterviewID: UUID?
     @State private var searchText = ""
 
     private var completed: [InterviewRecord] {
         interviews.filter { $0.status == .completed }
     }
 
-    /// Search matches Job Title and Company only.
     private var filtered: [InterviewRecord] {
-        let query = searchText.trimmingCharacters(in: .whitespaces)
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return completed }
+
         return completed.filter { interview in
-            interview.jobTitle.localizedCaseInsensitiveContains(query)
-                || (interview.company?.localizedCaseInsensitiveContains(query) ?? false)
+            cardSearchText(for: interview).localizedCaseInsensitiveContains(query)
         }
+    }
+
+    private func cardSearchText(for interview: InterviewRecord) -> String {
+        [
+            interview.jobTitle,
+            interview.company,
+            interview.startedAt.formatted(date: .abbreviated, time: .omitted),
+            interview.overallScore.map(String.init)
+        ]
+        .compactMap { $0 }
+        .joined(separator: " ")
     }
 
     var body: some View {
@@ -40,6 +51,11 @@ struct InterviewsView: View {
                     .padding(.horizontal, StepINSpacing.screenH)
                     .padding(.top, StepINSpacing.xxl)
 
+                if !completed.isEmpty {
+                    InterviewSearchBar(text: $searchText)
+                        .padding(.horizontal, StepINSpacing.screenH)
+                }
+
                 if completed.isEmpty {
                     StepINEmptyState(
                         title: "No interviews yet",
@@ -50,8 +66,11 @@ struct InterviewsView: View {
                 } else {
                     List {
                         ForEach(filtered) { interview in
-                            NavigationLink(value: interview.id) {
-                                InterviewHistoryCard(interview: interview)
+                            Button {
+                                selectedInterviewID = interview.id
+                            } label: {
+                                InterviewHistoryCard(interview: interview, showsChevron: true)
+                                    .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                             .listRowSeparator(.hidden)
@@ -75,9 +94,6 @@ struct InterviewsView: View {
                     .scrollContentBackground(.hidden)
                     .contentMargins(.top, StepINSpacing.xs, for: .scrollContent)
                     .contentMargins(.bottom, StepINSpacing.giant, for: .scrollContent)
-                    // Pull-down search: hidden until the user pulls the list,
-                    // keeping the default screen clean.
-                    .searchable(text: $searchText, prompt: "Job title or company")
                     .overlay {
                         if filtered.isEmpty {
                             ContentUnavailableView.search(text: searchText)
@@ -87,7 +103,7 @@ struct InterviewsView: View {
             }
             .background(StepINScreenBackground())
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: UUID.self) { id in
+            .navigationDestination(item: $selectedInterviewID) { id in
                 if let interview = completed.first(where: { $0.id == id }) {
                     InterviewDetailsView(interview: interview)
                 }
@@ -121,11 +137,44 @@ struct InterviewsView: View {
     }
 }
 
+private struct InterviewSearchBar: View {
+    @Binding var text: String
+
+    var body: some View {
+        HStack(spacing: StepINSpacing.sm) {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(StepINColor.textTertiary)
+
+            TextField("Search interviews", text: $text)
+                .font(StepINFont.bodyRegular)
+                .foregroundColor(StepINColor.textPrimary)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+
+            if !text.isEmpty {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(StepINColor.textTertiary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear search")
+            }
+        }
+        .padding(.horizontal, StepINSpacing.md)
+        .frame(height: 46)
+        .background(Color.white.opacity(0.72))
+        .clipShape(RoundedRectangle(cornerRadius: StepINRadius.medium, style: .continuous))
+    }
+}
+
 // MARK: - Shared card
 
 /// Interview summary card used on Home and in My Interviews.
 struct InterviewHistoryCard: View {
     let interview: InterviewRecord
+    var showsChevron = false
 
     private var dateText: String {
         interview.startedAt.formatted(date: .abbreviated, time: .omitted)
@@ -161,6 +210,11 @@ struct InterviewHistoryCard: View {
                 Spacer()
                 if let score = interview.overallScore {
                     ScoreBadge(score: score)
+                }
+                if showsChevron {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(StepINColor.textTertiary)
                 }
             }
         }

@@ -435,6 +435,10 @@ final class OpenAIRealtimeInterviewSession {
     private func startMicrophoneCapture() throws {
         let inputNode = audioEngine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
+        // SwiftUI Preview has no real audio hardware; inputNode returns sampleRate=0 /
+        // channelCount=0. Passing that to installTap raises a fatal CoreAudio assertion.
+        // Skip capture entirely — preview never sends audio to OpenAI anyway.
+        guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else { return }
         microphoneInputFormat = inputFormat
         let voiceAnalyzer = voiceStressAnalysisService
         inputNode.removeTap(onBus: 0)

@@ -80,6 +80,9 @@ final class InterviewSessionViewModel {
     /// Maps candidate turn UUID → index in `transcript` where that turn's entry lives.
     /// Allows late authoritative transcripts to update the existing entry in place.
     private var candidateTurnTranscriptIndex: [UUID: Int] = [:]
+    /// Voice result received from on-device analysis for the current turn.
+    /// Consumed (set to nil) when the first transcript entry for that turn is created.
+    private var pendingVoiceResult: VoicePerformanceResult? = nil
 
     init(
         configuration: InterviewConfiguration,
@@ -332,6 +335,7 @@ final class InterviewSessionViewModel {
     private func updateVoiceAnalysis(emotion: String, confidence: Double) {
         latestVoiceClassification = emotion
         latestVoiceConfidence = confidence
+        pendingVoiceResult = VoicePerformanceResult(label: emotion, confidence: confidence)
     }
 
     /// Creates or updates the candidate TranscriptEntry for a logical turn.
@@ -343,10 +347,15 @@ final class InterviewSessionViewModel {
     private func handleCandidateTranscript(turnID: UUID, text: String) {
         guard !text.isEmpty else { return }
         if let existingIndex = candidateTurnTranscriptIndex[turnID] {
-            transcript[existingIndex] = TranscriptEntry(speaker: .candidate, text: text)
+            // Late transcription.completed updating text — preserve the voice result already attached.
+            let existing = transcript[existingIndex]
+            transcript[existingIndex] = TranscriptEntry(speaker: .candidate, text: text, voiceResult: existing.voiceResult)
         } else {
+            // First emit for this turn (at response.create) — consume the pending voice result.
+            let voiceResult = pendingVoiceResult
+            pendingVoiceResult = nil
             candidateTurnTranscriptIndex[turnID] = transcript.count
-            transcript.append(TranscriptEntry(speaker: .candidate, text: text))
+            transcript.append(TranscriptEntry(speaker: .candidate, text: text, voiceResult: voiceResult))
         }
     }
 
