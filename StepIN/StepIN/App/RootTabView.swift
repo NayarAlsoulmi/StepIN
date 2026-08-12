@@ -12,6 +12,7 @@ import UIKit
 
 struct RootTabView: View {
     @Environment(AppState.self) private var appState
+    @AppStorage(StepINNavigationBridge.startInterviewRequestIDKey) private var startInterviewRequestID = ""
 
     init() {
         UITabBar.appearance().unselectedItemTintColor = UIColor(
@@ -39,6 +40,18 @@ struct RootTabView: View {
                 .tag(StepINTab.goals)
         }
         .tint(StepINColor.primary)
+        .onAppear(perform: routePendingStartInterviewIfNeeded)
+        .onChange(of: startInterviewRequestID) { _, _ in
+            routePendingStartInterviewIfNeeded()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: StepINNavigationBridge.startInterviewNotification)) { _ in
+            routePendingStartInterviewIfNeeded()
+        }
+    }
+
+    private func routePendingStartInterviewIfNeeded() {
+        guard !startInterviewRequestID.isEmpty else { return }
+        appState.selectedTab = .home
     }
 }
 
