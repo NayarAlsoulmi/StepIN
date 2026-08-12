@@ -18,6 +18,7 @@ struct GoalsView: View {
 
     @State private var goalPendingDeletion: AssignedGoal?
     @State private var goalSourceDestination: InterviewRecord?
+    @State private var searchText = ""
 
     /// Non-deleted goals, incomplete first then completed.
     private var goals: [AssignedGoal] {
@@ -31,6 +32,20 @@ struct GoalsView: View {
             }
     }
 
+    private var filteredGoals: [AssignedGoal] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return goals }
+
+        return goals.filter { goal in
+            goalSearchText(for: goal).localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    private func goalSearchText(for goal: AssignedGoal) -> String {
+        [goal.title, goal.sourceLabel]
+            .joined(separator: " ")
+    }
+
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: StepINSpacing.md) {
@@ -39,6 +54,11 @@ struct GoalsView: View {
                     .foregroundColor(StepINColor.textPrimary)
                     .padding(.horizontal, StepINSpacing.screenH)
                     .padding(.top, StepINSpacing.xxl)
+
+                if !goals.isEmpty {
+                    GoalsSearchBar(text: $searchText)
+                        .padding(.horizontal, StepINSpacing.screenH)
+                }
 
                 if goals.isEmpty {
                     StepINEmptyState(
@@ -50,7 +70,7 @@ struct GoalsView: View {
                 } else {
                     ScrollView {
                         LazyVStack(spacing: StepINSpacing.sm) {
-                            ForEach(goals) { goal in
+                            ForEach(filteredGoals) { goal in
                                 GoalCard(
                                     goal: goal,
                                     onToggle: { toggle(goal) },
@@ -63,6 +83,11 @@ struct GoalsView: View {
                         .padding(.horizontal, StepINSpacing.screenH)
                         .padding(.top, StepINSpacing.sm)
                         .padding(.bottom, StepINSpacing.giant)
+                    }
+                    .overlay {
+                        if filteredGoals.isEmpty {
+                            ContentUnavailableView.search(text: searchText)
+                        }
                     }
                 }
             }
@@ -104,6 +129,38 @@ struct GoalsView: View {
         withAnimation(StepINMotion.springStandard) {
             goal.status = .deleted // soft deletion
         }
+    }
+}
+
+private struct GoalsSearchBar: View {
+    @Binding var text: String
+
+    var body: some View {
+        HStack(spacing: StepINSpacing.sm) {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(StepINColor.textTertiary)
+
+            TextField("Search goals", text: $text)
+                .font(StepINFont.bodyRegular)
+                .foregroundColor(StepINColor.textPrimary)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+
+            if !text.isEmpty {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(StepINColor.textTertiary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear search")
+            }
+        }
+        .padding(.horizontal, StepINSpacing.md)
+        .frame(height: 46)
+        .background(Color.white.opacity(0.72))
+        .clipShape(RoundedRectangle(cornerRadius: StepINRadius.medium, style: .continuous))
     }
 }
 
