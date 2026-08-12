@@ -10,13 +10,21 @@ import SwiftUI
 import SwiftData
 
 struct InterviewsView: View {
+    @Environment(AppState.self) private var appState
     @Environment(\.modelContext) private var context
     @Query(sort: \InterviewRecord.startedAt, order: .reverse)
     private var interviews: [InterviewRecord]
 
+    @AppStorage(TutorialManager.interviewsTutorialCompletedKey) private var hasCompletedInterviewsTutorial = false
+    @AppStorage(TutorialManager.interviewsTutorialResumeAtLastStepKey) private var shouldResumeInterviewsTutorialAtLastStep = false
+    @AppStorage(TutorialManager.homeTutorialResumeAtLastStepKey) private var shouldResumeHomeTutorialAtLastStep = false
     @State private var interviewPendingDeletion: InterviewRecord?
     @State private var selectedInterviewID: UUID?
     @State private var searchText = ""
+    @State private var tutorialManager = TutorialManager(
+        steps: InterviewsTutorial.steps(hasCompletedInterviews: false),
+        completionKey: TutorialManager.interviewsTutorialCompletedKey
+    )
 
     private var completed: [InterviewRecord] {
         interviews.filter { $0.status == .completed }
@@ -43,8 +51,14 @@ struct InterviewsView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: StepINSpacing.md) {
+        TutorialHost(
+            manager: tutorialManager,
+            onBack: goBackInTutorial,
+            advancesToAnotherPage: true,
+            canGoBackToPreviousPage: true
+        ) {
+            NavigationStack {
+                VStack(alignment: .leading, spacing: StepINSpacing.md) {
                 Text("My Interviews")
                     .font(.system(size: 34, weight: .bold, design: .rounded))
                     .foregroundColor(StepINColor.textPrimary)
@@ -54,6 +68,7 @@ struct InterviewsView: View {
                 if !completed.isEmpty {
                     InterviewSearchBar(text: $searchText)
                         .padding(.horizontal, StepINSpacing.screenH)
+                        .tutorialTarget(.interviewsSearch)
                 }
 
                 if completed.isEmpty {
@@ -63,6 +78,7 @@ struct InterviewsView: View {
                         actionTitle: nil
                     )
                     .frame(maxHeight: .infinity)
+                    .tutorialTarget(.interviewsEmptyState)
                 } else {
                     List {
                         ForEach(filtered) { interview in
@@ -99,6 +115,7 @@ struct InterviewsView: View {
                             ContentUnavailableView.search(text: searchText)
                         }
                     }
+                    .tutorialTarget(.interviewsList)
                 }
             }
             .background(StepINScreenBackground())
@@ -124,6 +141,36 @@ struct InterviewsView: View {
                 Text("The transcript and analysis will be deleted. Goals from this interview are kept.")
             }
             .tint(StepINColor.textPrimary.opacity(0.72))
+            }
+        }
+        .onAppear(perform: startTutorialIfNeeded)
+    }
+
+    private func startTutorialIfNeeded() {
+        tutorialManager.updateSteps(InterviewsTutorial.steps(hasCompletedInterviews: !completed.isEmpty))
+        tutorialManager.onFinish = {
+            appState.selectedTab = .goals
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            guard appState.selectedTab == .interviews else { return }
+            if shouldResumeInterviewsTutorialAtLastStep {
+                shouldResumeInterviewsTutorialAtLastStep = false
+                tutorialManager.startAtLastStep()
+            } else {
+                tutorialManager.startIfNeeded(hasCompletedTutorial: hasCompletedInterviewsTutorial)
+            }
+        }
+    }
+
+    private func goBackInTutorial() {
+        if tutorialManager.isFirstStep {
+            tutorialManager.dismissWithoutCompleting()
+            hasCompletedInterviewsTutorial = false
+            shouldResumeHomeTutorialAtLastStep = true
+            appState.selectedTab = .home
+        } else {
+            tutorialManager.back()
         }
     }
 

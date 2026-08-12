@@ -12,10 +12,15 @@ import SwiftData
 struct InterviewDetailsView: View {
     let interview: InterviewRecord
 
+    @AppStorage(TutorialManager.interviewDetailsTutorialCompletedKey) private var hasCompletedInterviewDetailsTutorial = false
     @Query private var allGoals: [AssignedGoal]
     @State private var segment: Segment
     @State private var analysisSearchText = ""
     @State private var chatSearchText = ""
+    @State private var tutorialManager = TutorialManager(
+        steps: InterviewDetailsTutorial.steps,
+        completionKey: TutorialManager.interviewDetailsTutorialCompletedKey
+    )
 
     init(interview: InterviewRecord, initialSegment: Segment = .analysis) {
         self.interview = interview
@@ -102,10 +107,12 @@ struct InterviewDetailsView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: StepINSpacing.xl) {
+        TutorialHost(manager: tutorialManager, onNext: advanceTutorial) {
+            ScrollView {
+                VStack(spacing: StepINSpacing.xl) {
                 if shouldShowSearchBar {
                     detailsSearchBar
+                        .tutorialTarget(.detailsSearch)
                 }
 
                 summaryHeader
@@ -116,6 +123,7 @@ struct InterviewDetailsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .tutorialTarget(.detailsSegmentedControl)
 
                 switch segment {
                 case .analysis: analysisSection
@@ -128,6 +136,27 @@ struct InterviewDetailsView: View {
         .background(StepINScreenBackground())
         .navigationTitle(interview.jobTitle)
         .navigationBarTitleDisplayMode(.inline)
+        }
+        .onAppear(perform: startTutorialIfNeeded)
+        .onChange(of: tutorialManager.currentStep?.id) { _, target in
+            if target == .chatContent {
+                segment = .chat
+            }
+        }
+    }
+    private func startTutorialIfNeeded() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            tutorialManager.startIfNeeded(hasCompletedTutorial: hasCompletedInterviewDetailsTutorial)
+        }
+    }
+
+    private func advanceTutorial() {
+        if tutorialManager.currentStep?.id == .analysisContent {
+            segment = .chat
+            tutorialManager.moveToStep(target: .chatContent)
+        } else {
+            tutorialManager.next()
+        }
     }
         
         // MARK: Summary
@@ -235,6 +264,7 @@ struct InterviewDetailsView: View {
                         }
                     }
                 }
+                .tutorialTarget(.analysisContent)
             } else {
                 ContentUnavailableView.search(text: analysisSearchText)
             }
@@ -271,6 +301,7 @@ struct InterviewDetailsView: View {
                     )
                 }
             }
+            .tutorialTarget(.chatContent)
         }
     }
 }
