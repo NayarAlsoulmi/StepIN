@@ -10,15 +10,22 @@ import SwiftUI
 import SwiftData
 
 struct GoalsView: View {
+    @Environment(AppState.self) private var appState
     @Environment(\.modelContext) private var context
     @Query(sort: \AssignedGoal.createdAt, order: .reverse)
     private var allGoals: [AssignedGoal]
     @Query(sort: \InterviewRecord.startedAt, order: .reverse)
     private var allInterviews: [InterviewRecord]
 
+    @AppStorage(TutorialManager.goalsTutorialCompletedKey) private var hasCompletedGoalsTutorial = false
+    @AppStorage(TutorialManager.interviewsTutorialResumeAtLastStepKey) private var shouldResumeInterviewsTutorialAtLastStep = false
     @State private var goalPendingDeletion: AssignedGoal?
     @State private var goalSourceDestination: InterviewRecord?
     @State private var searchText = ""
+    @State private var tutorialManager = TutorialManager(
+        steps: GoalsTutorial.steps(hasGoals: false),
+        completionKey: TutorialManager.goalsTutorialCompletedKey
+    )
 
     /// Non-deleted goals, incomplete first then completed.
     private var goals: [AssignedGoal] {
@@ -47,8 +54,13 @@ struct GoalsView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: StepINSpacing.md) {
+        TutorialHost(
+            manager: tutorialManager,
+            onBack: goBackInTutorial,
+            canGoBackToPreviousPage: true
+        ) {
+            NavigationStack {
+                VStack(alignment: .leading, spacing: StepINSpacing.md) {
                 Text("My Goals")
                     .font(.system(size: 34, weight: .bold, design: .rounded))
                     .foregroundColor(StepINColor.textPrimary)
@@ -58,6 +70,7 @@ struct GoalsView: View {
                 if !goals.isEmpty {
                     GoalsSearchBar(text: $searchText)
                         .padding(.horizontal, StepINSpacing.screenH)
+                        .tutorialTarget(.goalsSearch)
                 }
 
                 if goals.isEmpty {
@@ -67,6 +80,7 @@ struct GoalsView: View {
                         actionTitle: nil
                     )
                     .frame(maxHeight: .infinity)
+                    .tutorialTarget(.goalsEmptyState)
                 } else {
                     ScrollView {
                         LazyVStack(spacing: StepINSpacing.sm) {
@@ -89,6 +103,7 @@ struct GoalsView: View {
                             ContentUnavailableView.search(text: searchText)
                         }
                     }
+                    .tutorialTarget(.goalsList)
                 }
             }
             .background(StepINScreenBackground())
@@ -110,6 +125,28 @@ struct GoalsView: View {
                 Button("Cancel", role: .cancel) { goalPendingDeletion = nil }
             }
             .tint(StepINColor.textPrimary.opacity(0.72))
+            }
+        }
+        .onAppear(perform: startTutorialIfNeeded)
+    }
+
+    private func startTutorialIfNeeded() {
+        tutorialManager.updateSteps(GoalsTutorial.steps(hasGoals: !goals.isEmpty))
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            guard appState.selectedTab == .goals else { return }
+            tutorialManager.startIfNeeded(hasCompletedTutorial: hasCompletedGoalsTutorial)
+        }
+    }
+
+    private func goBackInTutorial() {
+        if tutorialManager.isFirstStep {
+            tutorialManager.dismissWithoutCompleting()
+            hasCompletedGoalsTutorial = false
+            shouldResumeInterviewsTutorialAtLastStep = true
+            appState.selectedTab = .interviews
+        } else {
+            tutorialManager.back()
         }
     }
 
@@ -185,6 +222,7 @@ struct GoalCard: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(isCompleted ? "Mark goal as to do" : "Mark goal as completed")
+                .tutorialTarget(.goalToggle)
 
                 VStack(alignment: .leading, spacing: StepINSpacing.xs) {
                     Text(goal.title)

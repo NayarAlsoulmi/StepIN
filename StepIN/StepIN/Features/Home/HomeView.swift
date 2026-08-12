@@ -15,6 +15,8 @@ struct HomeView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(StepINNavigationBridge.startInterviewRequestIDKey) private var startInterviewRequestID = ""
+    @AppStorage(TutorialManager.homeTutorialCompletedKey) private var hasCompletedHomeTutorial = false
+    @AppStorage(TutorialManager.homeTutorialResumeAtLastStepKey) private var shouldResumeHomeTutorialAtLastStep = false
     @Query private var profiles: [UserProfile]
     @Query(sort: \InterviewRecord.startedAt, order: .reverse)
     private var interviews: [InterviewRecord]
@@ -29,6 +31,7 @@ struct HomeView: View {
     @State private var robertTapTrigger = false
     @State private var pendingHeroWaves = 0
     @State private var showProfile = false
+    @State private var tutorialManager = TutorialManager(steps: HomeTutorial.steps)
 
     // Entry — 0 → 1 drives opacity, scale, and vertical offset together
     @State private var robertAppeared: Double = 0
@@ -59,55 +62,58 @@ struct HomeView: View {
     // MARK: Body
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                headerView
-                    .padding(.horizontal, StepINSpacing.screenH)
-                    .padding(.bottom, StepINSpacing.section)
-                ScrollView {
-                    VStack(alignment: .leading, spacing: StepINSpacing.section) {
-                        heroCard
-                        recentInterviewsSection
-                        recentGoalsSection
-                    }
-                    .padding(.horizontal, StepINSpacing.screenH)
-                    .padding(.bottom, StepINSpacing.xxl)
-                }
-            }
-            .background(StepINScreenBackground())
-            .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: UUID.self) { id in
-                if let interview = interviews.first(where: { $0.id == id }) {
-                    InterviewDetailsView(interview: interview)
-                }
-            }
-            .sensoryFeedback(.impact(weight: .light), trigger: startFeedbackTrigger)
-            .sensoryFeedback(.impact(weight: .light), trigger: robertTapTrigger)
-            .fullScreenCover(isPresented: $showProfile) {
-                NavigationStack {
-                    ProfileView(embedsInNavigationStack: false)
-                        .toolbar(.visible, for: .navigationBar)
-                        .toolbar {
-                            ToolbarItem(placement: .cancellationAction) {
-                                Button("Close") {
-                                    showProfile = false
-                                }
-                                .foregroundStyle(StepINColor.primary)
-                            }
+        TutorialHost(manager: tutorialManager, advancesToAnotherPage: true) {
+            NavigationStack {
+                VStack(spacing: 0) {
+                    headerView
+                        .padding(.horizontal, StepINSpacing.screenH)
+                        .padding(.bottom, StepINSpacing.section)
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: StepINSpacing.section) {
+                            heroCard
+                            recentInterviewsSection
+                            recentGoalsSection
                         }
+                        .padding(.horizontal, StepINSpacing.screenH)
+                        .padding(.bottom, StepINSpacing.xxl)
+                    }
                 }
-            }
-            .fullScreenCover(isPresented: $showInterviewFlow) {
-                InterviewFlowView {
-                    showInterviewFlow = false
-                    isStartingInterview = false
-                    heroRobotState = .idle
+                .background(StepINScreenBackground())
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(for: UUID.self) { id in
+                    if let interview = interviews.first(where: { $0.id == id }) {
+                        InterviewDetailsView(interview: interview)
+                    }
+                }
+                .sensoryFeedback(.impact(weight: .light), trigger: startFeedbackTrigger)
+                .sensoryFeedback(.impact(weight: .light), trigger: robertTapTrigger)
+                .fullScreenCover(isPresented: $showProfile) {
+                    NavigationStack {
+                        ProfileView(embedsInNavigationStack: false)
+                            .toolbar(.visible, for: .navigationBar)
+                            .toolbar {
+                                ToolbarItem(placement: .cancellationAction) {
+                                    Button("Close") {
+                                        showProfile = false
+                                    }
+                                    .foregroundStyle(StepINColor.primary)
+                                }
+                            }
+                    }
+                }
+                .fullScreenCover(isPresented: $showInterviewFlow) {
+                    InterviewFlowView {
+                        showInterviewFlow = false
+                        isStartingInterview = false
+                        heroRobotState = .idle
+                    }
                 }
             }
         }
         .onAppear {
             triggerHomeEntry()
             routePendingStartInterviewIfNeeded()
+            startHomeTutorialIfNeeded()
         }
         .onChange(of: startInterviewRequestID) { _, _ in
             routePendingStartInterviewIfNeeded()
@@ -253,9 +259,29 @@ struct HomeView: View {
 
     private func startInterview() {
         guard !isStartingInterview else { return }
+        if tutorialManager.isPresented {
+            tutorialManager.skip()
+        }
         isStartingInterview = true
         startFeedbackTrigger.toggle()
         showInterviewFlow = true
+    }
+
+    private func startHomeTutorialIfNeeded() {
+        tutorialManager.onFinish = {
+            appState.selectedTab = .interviews
+        }
+
+        let delay: TimeInterval = reduceMotion ? 0.15 : 0.7
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            guard appState.selectedTab == .home, !showInterviewFlow, !showProfile else { return }
+            if shouldResumeHomeTutorialAtLastStep {
+                shouldResumeHomeTutorialAtLastStep = false
+                tutorialManager.startAtLastStep()
+            } else {
+                tutorialManager.startIfNeeded(hasCompletedTutorial: hasCompletedHomeTutorial)
+            }
+        }
     }
 
     // MARK: Recent interviews
@@ -287,6 +313,7 @@ struct HomeView: View {
                 }
             }
         }
+        .tutorialTarget(.recentInterviews)
     }
 
     // MARK: Recent goals
@@ -339,6 +366,7 @@ private struct HomeGreetingHeader: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Profile")
+            .tutorialTarget(.profile)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("Good morning,")
@@ -469,6 +497,7 @@ private struct HomeInterviewHeroCard: View {
         .padding(.top, StepINSpacing.xs)
         .frame(maxWidth: 178)
         .accessibilityLabel("Start Interview")
+        .tutorialTarget(.startInterview)
     }
 
     private var robertColumn: some View {
