@@ -8,6 +8,21 @@
 
 import SwiftUI
 
+/// Bridge used by App Intents to request navigation in the running app.
+enum StepINNavigationBridge {
+    nonisolated static let startInterviewRequestIDKey = "stepin.pendingStartInterviewRequestID"
+    nonisolated static let startInterviewNotification = Notification.Name("stepin.startInterviewRequested")
+
+    nonisolated static func requestStartInterview() {
+        UserDefaults.standard.set(UUID().uuidString, forKey: startInterviewRequestIDKey)
+        NotificationCenter.default.post(name: startInterviewNotification, object: nil)
+    }
+
+    nonisolated static func clearStartInterviewRequest() {
+        UserDefaults.standard.removeObject(forKey: startInterviewRequestIDKey)
+    }
+}
+
 /// The primary tabs of the application.
 enum StepINTab: Hashable, CaseIterable {
     case home

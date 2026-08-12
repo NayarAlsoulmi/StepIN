@@ -14,6 +14,7 @@ import SwiftData
 struct HomeView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(StepINNavigationBridge.startInterviewRequestIDKey) private var startInterviewRequestID = ""
     @Query private var profiles: [UserProfile]
     @Query(sort: \InterviewRecord.startedAt, order: .reverse)
     private var interviews: [InterviewRecord]
@@ -104,7 +105,16 @@ struct HomeView: View {
                 }
             }
         }
-        .onAppear { triggerHomeEntry() }
+        .onAppear {
+            triggerHomeEntry()
+            routePendingStartInterviewIfNeeded()
+        }
+        .onChange(of: startInterviewRequestID) { _, _ in
+            routePendingStartInterviewIfNeeded()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: StepINNavigationBridge.startInterviewNotification)) { _ in
+            routePendingStartInterviewIfNeeded()
+        }
     }
 
     // MARK: Premium header
@@ -234,6 +244,12 @@ struct HomeView: View {
     }
 
     // MARK: Start interview
+
+    private func routePendingStartInterviewIfNeeded() {
+        guard !startInterviewRequestID.isEmpty else { return }
+        StepINNavigationBridge.clearStartInterviewRequest()
+        startInterview()
+    }
 
     private func startInterview() {
         guard !isStartingInterview else { return }
