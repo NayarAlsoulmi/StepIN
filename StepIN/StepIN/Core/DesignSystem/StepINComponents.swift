@@ -10,7 +10,7 @@ import SwiftUI
 // MARK: - Primary Button
 
 struct StepINPrimaryButton: View {
-    let title: String
+    let title: LocalizedStringResource
     var systemImage: String? = nil
     var isLoading: Bool = false
     var isEnabled: Bool = true
@@ -49,7 +49,7 @@ struct StepINPrimaryButton: View {
 // MARK: - Secondary Button
 
 struct StepINSecondaryButton: View {
-    let title: String
+    let title: LocalizedStringResource
     var systemImage: String? = nil
     let action: () -> Void
 
@@ -73,7 +73,7 @@ struct StepINSecondaryButton: View {
 // MARK: - Destructive Button
 
 struct StepINDestructiveButton: View {
-    let title: String
+    let title: LocalizedStringResource
     let action: () -> Void
 
     var body: some View {
@@ -130,8 +130,8 @@ struct StepINCard<Content: View>: View {
 // MARK: - Section Header
 
 struct StepINSectionHeader: View {
-    let title: String
-    var actionTitle: String? = nil
+    let title: LocalizedStringResource
+    var actionTitle: LocalizedStringResource? = nil
     var action: (() -> Void)? = nil
 
     var body: some View {
@@ -141,9 +141,11 @@ struct StepINSectionHeader: View {
                 .foregroundColor(StepINColor.textPrimary)
             Spacer()
             if let actionTitle, let action {
-                Button(actionTitle, action: action)
-                    .font(StepINFont.body3)
-                    .foregroundColor(StepINColor.primary)
+                Button(action: action) {
+                    Text(actionTitle)
+                        .font(StepINFont.body3)
+                        .foregroundColor(StepINColor.primary)
+                }
             }
         }
     }
@@ -153,9 +155,9 @@ struct StepINSectionHeader: View {
 
 struct StepINEmptyState: View {
     var robotState: RobotState = .idle
-    let title: String
-    let message: String
-    var actionTitle: String? = nil
+    let title: LocalizedStringResource
+    let message: LocalizedStringResource
+    var actionTitle: LocalizedStringResource? = nil
     var action: (() -> Void)? = nil
 
     var body: some View {
@@ -184,7 +186,7 @@ struct StepINEmptyState: View {
 // MARK: - Loading View
 
 struct StepINLoadingView: View {
-    let message: String
+    let message: LocalizedStringResource
 
     var body: some View {
         VStack(spacing: StepINSpacing.md) {

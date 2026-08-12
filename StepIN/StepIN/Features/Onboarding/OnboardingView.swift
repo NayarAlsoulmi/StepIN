@@ -11,8 +11,8 @@ import SwiftUI
 private struct OnboardingPage: Identifiable {
     let id = Int.random(in: 0..<Int.max)
     let robotState: RobotState
-    let title: String
-    let message: String
+    let title: LocalizedStringResource
+    let message: LocalizedStringResource
 }
 
 struct OnboardingView: View {

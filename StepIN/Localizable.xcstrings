@@ -1,0 +1,1111 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "" : {
+
+    },
+    "/ 100" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "/ 100"
+          }
+        }
+      }
+    },
+    "%@: %@" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: %2$@"
+          }
+        }
+      }
+    },
+    "%@: %lld out of 100" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: %2$lld من 100"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: %2$lld out of 100"
+          }
+        }
+      }
+    },
+    "%lld" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld"
+          }
+        }
+      }
+    },
+    "Analysis unavailable" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "التحليل غير متاح"
+          }
+        }
+      }
+    },
+    "Analyzing your interview" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جار تحليل مقابلتك"
+          }
+        }
+      }
+    },
+    "Analyzing your interview..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جار تحليل مقابلتك..."
+          }
+        }
+      }
+    },
+    "Areas to Improve" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مجالات التحسين"
+          }
+        }
+      }
+    },
+    "Assigned Goals" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الأهداف المحددة"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إلغاء"
+          }
+        }
+      }
+    },
+    "Clear search" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مسح البحث"
+          }
+        }
+      }
+    },
+    "Close" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إغلاق"
+          }
+        }
+      }
+    },
+    "Company" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الشركة"
+          }
+        }
+      }
+    },
+    "Company Website" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "موقع الشركة"
+          }
+        }
+      }
+    },
+    "Complete an interview to receive personalized improvement goals." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "أكمل مقابلة للحصول على أهداف تحسين مخصصة."
+          }
+        }
+      }
+    },
+    "Continue" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "متابعة"
+          }
+        }
+      }
+    },
+    "Continue Interview" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "متابعة المقابلة"
+          }
+        }
+      }
+    },
+    "Create Profile" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إنشاء الملف الشخصي"
+          }
+        }
+      }
+    },
+    "CV attached: %@" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "السيرة الذاتية مرفقة: %@"
+          }
+        }
+      }
+    },
+    "CV for this interview" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "السيرة الذاتية لهذه المقابلة"
+          }
+        }
+      }
+    },
+    "Delete" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حذف"
+          }
+        }
+      }
+    },
+    "Delete goal" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حذف الهدف"
+          }
+        }
+      }
+    },
+    "Delete Interview" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حذف المقابلة"
+          }
+        }
+      }
+    },
+    "Delete this goal?" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "هل تريد حذف هذا الهدف؟"
+          }
+        }
+      }
+    },
+    "Delete this interview?" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "هل تريد حذف هذه المقابلة؟"
+          }
+        }
+      }
+    },
+    "Double tap to wave" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اضغط مرتين للتلويح"
+          }
+        }
+      }
+    },
+    "Edit" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تعديل"
+          }
+        }
+      }
+    },
+    "Edit Profile" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تعديل الملف الشخصي"
+          }
+        }
+      }
+    },
+    "Email" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "البريد الإلكتروني"
+          }
+        }
+      }
+    },
+    "End" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إنهاء"
+          }
+        }
+      }
+    },
+    "End interview" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إنهاء المقابلة"
+          }
+        }
+      }
+    },
+    "End Interview" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إنهاء المقابلة"
+          }
+        }
+      }
+    },
+    "End this interview?" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "هل تريد إنهاء هذه المقابلة؟"
+          }
+        }
+      }
+    },
+    "Finish answer" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إنهاء الإجابة"
+          }
+        }
+      }
+    },
+    "Finish Answer" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إنهاء الإجابة"
+          }
+        }
+      }
+    },
+    "First Name" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الاسم الأول"
+          }
+        }
+      }
+    },
+    "Generate Interview" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إنشاء المقابلة"
+          }
+        }
+      }
+    },
+    "Get instant feedback" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "احصل على ملاحظات فورية"
+          }
+        }
+      }
+    },
+    "Get Started" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ابدأ الآن"
+          }
+        }
+      }
+    },
+    "Good morning," : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "صباح الخير،"
+          }
+        }
+      }
+    },
+    "Interview Connection Issue" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مشكلة في اتصال المقابلة"
+          }
+        }
+      }
+    },
+    "Interview Paused" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تم إيقاف المقابلة مؤقتاً"
+          }
+        }
+      }
+    },
+    "Interview state: %@" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حالة المقابلة: %@"
+          }
+        }
+      }
+    },
+    "Job Description" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "وصف الوظيفة"
+          }
+        }
+      }
+    },
+    "Job Description, optional" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "وصف الوظيفة، اختياري"
+          }
+        }
+      }
+    },
+    "Job Title" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "المسمى الوظيفي"
+          }
+        }
+      }
+    },
+    "Last Name" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اسم العائلة"
+          }
+        }
+      }
+    },
+    "Let's get to know you" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "دعنا نتعرف عليك"
+          }
+        }
+      }
+    },
+    "Mark goal as completed" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تحديد الهدف كمكتمل"
+          }
+        }
+      }
+    },
+    "Mark goal as to do" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تحديد الهدف كغير مكتمل"
+          }
+        }
+      }
+    },
+    "My Goals" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "أهدافي"
+          }
+        }
+      }
+    },
+    "My Interviews" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مقابلاتي"
+          }
+        }
+      }
+    },
+    "New Interview" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مقابلة جديدة"
+          }
+        }
+      }
+    },
+    "Next" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "التالي"
+          }
+        }
+      }
+    },
+    "No goals yet" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا توجد أهداف بعد"
+          }
+        }
+      }
+    },
+    "No interviews yet" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا توجد مقابلات بعد"
+          }
+        }
+      }
+    },
+    "No meaningful interview performance was recorded." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لم يتم تسجيل أداء مقابلة كافٍ للتقييم."
+          }
+        }
+      }
+    },
+    "No transcript" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا يوجد نص للمقابلة"
+          }
+        }
+      }
+    },
+    "Not Evaluated" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لم يتم التقييم"
+          }
+        }
+      }
+    },
+    "Not evaluated — no meaningful interview performance was recorded" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لم يتم التقييم - لم يتم تسجيل أداء مقابلة كافٍ"
+          }
+        }
+      }
+    },
+    "Number of questions" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "عدد الأسئلة"
+          }
+        }
+      }
+    },
+    "Open source interview: %@" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "فتح المقابلة الأصلية: %@"
+          }
+        }
+      }
+    },
+    "Optional" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اختياري"
+          }
+        }
+      }
+    },
+    "Overall score %lld out of 100" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "النتيجة الإجمالية %lld من 100"
+          }
+        }
+      }
+    },
+    "Partial" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جزئية"
+          }
+        }
+      }
+    },
+    "Partial Interview" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مقابلة جزئية"
+          }
+        }
+      }
+    },
+    "Pause interview" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إيقاف المقابلة مؤقتاً"
+          }
+        }
+      }
+    },
+    "PDF or text · optional" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PDF أو نص · اختياري"
+          }
+        }
+      }
+    },
+    "Performance" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الأداء"
+          }
+        }
+      }
+    },
+    "Personalized for every job" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مخصص لكل وظيفة"
+          }
+        }
+      }
+    },
+    "Practice Again" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تدرب مرة أخرى"
+          }
+        }
+      }
+    },
+    "Practice interviews with AI" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تدرب على المقابلات باستخدام الذكاء الاصطناعي"
+          }
+        }
+      }
+    },
+    "Practice with an AI interviewer tailored to your role." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تدرب مع محاور ذكاء اصطناعي مخصص لدورك."
+          }
+        }
+      }
+    },
+    "Preparing your interview" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جار تجهيز مقابلتك"
+          }
+        }
+      }
+    },
+    "Profile" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الملف الشخصي"
+          }
+        }
+      }
+    },
+    "Ready for your next interview?" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "هل أنت جاهز لمقابلتك القادمة؟"
+          }
+        }
+      }
+    },
+    "Receive a score, personalized coaching, and improvement goals after every interview." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "احصل على نتيجة وإرشاد مخصص وأهداف تحسين بعد كل مقابلة."
+          }
+        }
+      }
+    },
+    "Recent Goals" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الأهداف الأخيرة"
+          }
+        }
+      }
+    },
+    "Recent Interviews" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "المقابلات الأخيرة"
+          }
+        }
+      }
+    },
+    "Remove CV" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إزالة السيرة الذاتية"
+          }
+        }
+      }
+    },
+    "Resume Interview" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "استئناف المقابلة"
+          }
+        }
+      }
+    },
+    "Return Home" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "العودة للرئيسية"
+          }
+        }
+      }
+    },
+    "Save" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حفظ"
+          }
+        }
+      }
+    },
+    "Search goals" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "البحث في الأهداف"
+          }
+        }
+      }
+    },
+    "Search interviews" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "البحث في المقابلات"
+          }
+        }
+      }
+    },
+    "Section" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "القسم"
+          }
+        }
+      }
+    },
+    "See All" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "عرض الكل"
+          }
+        }
+      }
+    },
+    "Speak with a realistic AI interviewer that adapts to your answers, just like the real thing." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تحدث مع محاور ذكاء اصطناعي واقعي يتكيف مع إجاباتك كما في المقابلة الحقيقية."
+          }
+        }
+      }
+    },
+    "Start Interview" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ابدأ المقابلة"
+          }
+        }
+      }
+    },
+    "Start your first interview and receive personalized feedback." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ابدأ أول مقابلة واحصل على ملاحظات مخصصة."
+          }
+        }
+      }
+    },
+    "Step into your next opportunity." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اخطُ نحو فرصتك القادمة."
+          }
+        }
+      }
+    },
+    "StepIN" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "StepIN"
+          }
+        }
+      }
+    },
+    "StepIN. Step into your next opportunity." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "StepIN. اخطُ نحو فرصتك القادمة."
+          }
+        }
+      }
+    },
+    "Strengths" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "نقاط القوة"
+          }
+        }
+      }
+    },
+    "Tap to replace" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اضغط للاستبدال"
+          }
+        }
+      }
+    },
+    "Tell us about the job you're preparing for. Only the job title is required." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "أخبرنا عن الوظيفة التي تستعد لها. المسمى الوظيفي فقط مطلوب."
+          }
+        }
+      }
+    },
+    "Tell us the role you're aiming for — questions are tailored to the job, the company, and your CV." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "أخبرنا بالدور الذي تستهدفه - ستُخصص الأسئلة حسب الوظيفة والشركة وسيرتك الذاتية."
+          }
+        }
+      }
+    },
+    "Thank you for your time today." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "شكراً على وقتك اليوم."
+          }
+        }
+      }
+    },
+    "The transcript and analysis will be deleted. Goals from this interview are kept." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "سيتم حذف نص المقابلة والتحليل. ستبقى الأهداف الناتجة عن هذه المقابلة محفوظة."
+          }
+        }
+      }
+    },
+    "This interview doesn't have an analysis yet." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا تحتوي هذه المقابلة على تحليل بعد."
+          }
+        }
+      }
+    },
+    "This interview has no recorded conversation." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا تحتوي هذه المقابلة على محادثة مسجلة."
+          }
+        }
+      }
+    },
+    "Try Again" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حاول مرة أخرى"
+          }
+        }
+      }
+    },
+    "Upload CV, optional" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "رفع السيرة الذاتية، اختياري"
+          }
+        }
+      }
+    },
+    "We couldn't finish your analysis" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لم نتمكن من إكمال التحليل"
+          }
+        }
+      }
+    },
+    "You'll still receive feedback on the answers you've completed." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ستظل تحصل على ملاحظات حول الإجابات التي أكملتها."
+          }
+        }
+      }
+    },
+    "Your completed interviews and feedback will appear here." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ستظهر مقابلاتك المكتملة وملاحظاتك هنا."
+          }
+        }
+      }
+    },
+    "Your details stay on this device and help personalize your interviews." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تبقى بياناتك على هذا الجهاز وتساعد في تخصيص مقابلاتك."
+          }
+        }
+      }
+    },
+    "Your interview and transcript are saved. You can find them in My Interviews." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تم حفظ مقابلتك ونص المحادثة. يمكنك العثور عليهما في مقابلاتي."
+          }
+        }
+      }
+    },
+    "Your Results" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "نتائجك"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.1"
+}

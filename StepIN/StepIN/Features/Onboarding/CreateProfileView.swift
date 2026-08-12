@@ -84,7 +84,7 @@ struct CreateProfileView: View {
 /// Labeled single-line field in the StepIN form style. The entire row is
 /// tappable and drives focus explicitly for reliability.
 struct StepINTextField: View {
-    let label: String
+    let label: LocalizedStringResource
     @Binding var text: String
     var isRequired: Bool = false
 
@@ -102,7 +102,9 @@ struct StepINTextField: View {
                         .foregroundColor(StepINColor.textTertiary)
                 }
             }
-            TextField(label, text: $text)
+            TextField(text: $text) {
+                Text(label)
+            }
                 .focused($isFocused)
                 .font(StepINFont.bodyRegular)
                 .padding(StepINSpacing.md)

@@ -334,7 +334,7 @@ struct PerformanceMetricRow: View {
 }
 
 struct FeedbackListSection: View {
-    let title: String
+    let title: LocalizedStringResource
     let items: [String]
     let icon: String
     let iconColor: Color
