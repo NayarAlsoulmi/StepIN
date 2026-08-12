@@ -8,6 +8,7 @@
 
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct ProfileView: View {
     var embedsInNavigationStack = true
@@ -17,6 +18,9 @@ struct ProfileView: View {
     @State private var showEditProfile = false
 
     private var profile: UserProfile? { profiles.first }
+    private var profileImage: UIImage? {
+        ProfileImageService.image(atLocalPath: profile?.profileImageLocalPath)
+    }
 
     @ViewBuilder
     var body: some View {
@@ -67,19 +71,12 @@ struct ProfileView: View {
 
     private var header: some View {
         VStack(spacing: StepINSpacing.sm) {
-            ZStack {
-                Circle()
-                    .fill(StepINColor.primarySoft)
-                    .frame(width: 102, height: 102)
-                Text(initials)
-                    .font(StepINFont.h1)
-                    .foregroundColor(StepINColor.primary)
-            }
-            .overlay(
-                Circle()
-                    .strokeBorder(Color.white.opacity(0.9), lineWidth: 1)
+            StepINProfileAvatar(
+                image: profileImage,
+                initials: initials,
+                size: 102,
+                initialsFont: StepINFont.h1
             )
-            .shadow(color: StepINColor.shadow.opacity(0.35), radius: 10, x: 0, y: 4)
 
             Text(displayFirstName)
                 .font(StepINFont.h3)

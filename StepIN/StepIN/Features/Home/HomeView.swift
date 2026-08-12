@@ -10,6 +10,7 @@
 
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct HomeView: View {
     @Environment(AppState.self) private var appState
@@ -44,6 +45,10 @@ struct HomeView: View {
     nonisolated(unsafe) private static var hasPlayedRobertGreeting = false
 
     private var firstName: String { profiles.first?.firstName ?? "there" }
+    private var profileImage: UIImage? {
+        ProfileImageService.image(atLocalPath: profiles.first?.profileImageLocalPath)
+    }
+
     private var userInitials: String {
         let f = profiles.first?.firstName.prefix(1) ?? "?"
         let l = profiles.first?.lastName?.prefix(1) ?? ""
@@ -129,6 +134,7 @@ struct HomeView: View {
         HomeGreetingHeader(
             firstName: firstName,
             initials: userInitials,
+            profileImage: profileImage,
             profileAction: { showProfile = true }
         )
             .padding(.top, StepINSpacing.md)
@@ -353,6 +359,7 @@ struct HomeView: View {
 private struct HomeGreetingHeader: View {
     let firstName: String
     let initials: String
+    let profileImage: UIImage?
     let profileAction: () -> Void
 
     var body: some View {
@@ -360,8 +367,7 @@ private struct HomeGreetingHeader: View {
             Button {
                 profileAction()
             } label: {
-                ProfileAvatarView(initials: initials)
-                    .frame(width: 66, height: 66)
+                StepINProfileAvatar(image: profileImage, initials: initials)
                     .contentShape(Circle())
             }
             .buttonStyle(.plain)
@@ -383,36 +389,6 @@ private struct HomeGreetingHeader: View {
 
             Spacer(minLength: 0)
         }
-    }
-}
-
-// MARK: - ProfileAvatarView
-
-private struct ProfileAvatarView: View {
-    let initials: String
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(StepINColor.primarySoft)
-                .allowsHitTesting(false)
-
-            Text(initials)
-                .font(.system(.headline, design: .rounded, weight: .semibold))
-                .foregroundStyle(StepINColor.primary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .padding(8)
-                .allowsHitTesting(false)
-        }
-        .frame(width: 66, height: 66)
-        .overlay(
-            Circle()
-                .strokeBorder(Color.white.opacity(0.92), lineWidth: 1)
-                .allowsHitTesting(false)
-        )
-        .shadow(color: StepINColor.shadow.opacity(0.45), radius: 7, x: 0, y: 3)
-        .accessibilityHidden(true)
     }
 }
 
