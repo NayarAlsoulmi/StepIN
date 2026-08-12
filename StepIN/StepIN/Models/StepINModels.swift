@@ -18,6 +18,7 @@ final class UserProfile {
     var firstName: String
     var lastName: String?
     var email: String?
+    var profileImageLocalPath: String?
     var profileCVFileName: String?
     var profileCVLocalPath: String?
     var profileCVExtractedText: String?
@@ -29,6 +30,7 @@ final class UserProfile {
         firstName: String,
         lastName: String? = nil,
         email: String? = nil,
+        profileImageLocalPath: String? = nil,
         profileCVFileName: String? = nil,
         profileCVLocalPath: String? = nil,
         profileCVExtractedText: String? = nil,
@@ -39,6 +41,7 @@ final class UserProfile {
         self.firstName = firstName
         self.lastName = lastName
         self.email = email
+        self.profileImageLocalPath = profileImageLocalPath
         self.profileCVFileName = profileCVFileName
         self.profileCVLocalPath = profileCVLocalPath
         self.profileCVExtractedText = profileCVExtractedText
