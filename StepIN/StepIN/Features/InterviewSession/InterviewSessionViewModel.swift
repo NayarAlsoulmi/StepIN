@@ -52,14 +52,25 @@ final class InterviewSessionViewModel {
         }
     }
 
+    /// UI-facing state label. Wrapped in `String(localized:)` (rather than plain
+    /// string literals returned from a computed property) so Xcode's String
+    /// Catalog extractor can see and translate these — a computed property
+    /// returning raw literals is invisible to the localization scanner even
+    /// though the View binds to it via `Text(viewModel.stateLabel)`.
     var stateLabel: String {
         switch phase {
-        case .interviewerSpeaking: "Speaking"
-        case .candidateListening: "Listening"
-        case .processingAnswer: "Thinking"
-        case .paused: "Paused"
-        case .error: "Connection Issue"
-        default: ""
+        case .interviewerSpeaking:
+            String(localized: "Speaking", comment: "Interview state label shown while the AI interviewer is talking")
+        case .candidateListening:
+            String(localized: "Listening", comment: "Interview state label shown while the candidate is answering")
+        case .processingAnswer:
+            String(localized: "Thinking", comment: "Interview state label shown while the AI is processing the answer")
+        case .paused:
+            String(localized: "Paused", comment: "Interview state label shown while the interview is paused")
+        case .error:
+            String(localized: "Connection Issue", comment: "Interview state label shown when the realtime session errors")
+        default:
+            ""
         }
     }
 

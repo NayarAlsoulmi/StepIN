@@ -45,13 +45,23 @@ final class OpenAIRealtimeInterviewSession {
     }
 
     let finalPhrase = "Thank you. That concludes our interview."
+
+    /// Localized introduction spoken at the very start of the session.
+    /// Matches `primaryInterviewLanguage`, which is seeded from the device/app
+    /// locale at init time (see `detectDeviceInterviewLanguage()`), so the very
+    /// first thing the candidate hears is already in their language.
     private var introductionText: String {
         let firstName = configuration.candidateFirstName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !firstName.isEmpty {
-            return "Hello, \(firstName). I'm your AI Interviewer, and I'll be conducting your interview today."
+        switch primaryInterviewLanguage {
+        case .english:
+            return firstName.isEmpty
+                ? "Hello, I'm your AI Interviewer, and I'll be conducting your interview today."
+                : "Hello, \(firstName). I'm your AI Interviewer, and I'll be conducting your interview today."
+        case .arabic:
+            return firstName.isEmpty
+                ? "مرحباً، أنا المحاور الذكي، وسأقوم بإجراء مقابلتك اليوم."
+                : "مرحباً \(firstName)، أنا المحاور الذكي، وسأقوم بإجراء مقابلتك اليوم."
         }
-
-        return "Hello, I'm your AI Interviewer, and I'll be conducting your interview today."
     }
 
     private let configuration: InterviewConfiguration
@@ -66,7 +76,10 @@ final class OpenAIRealtimeInterviewSession {
     /// transcript, and again if a late transcription.completed arrives afterwards.
     /// The ViewModel creates or updates a single entry per turnID.
     private let onCandidateTranscript: (_ turnID: UUID, _ text: String) -> Void
-    private var primaryInterviewLanguage: InterviewLanguage = .english
+    /// Seeded from the device/app locale at init (see `detectDeviceInterviewLanguage()`),
+    /// not hardcoded to English. Can still change mid-session if the candidate
+    /// explicitly asks to switch languages (see `requestedInterviewLanguage(in:)`).
+    private var primaryInterviewLanguage: InterviewLanguage
 
     // Lazily constructed so the callback closure can capture self safely after
     // all stored properties are initialized (standard Swift two-phase init).
@@ -149,6 +162,7 @@ final class OpenAIRealtimeInterviewSession {
         self.onCandidateTranscript = onCandidateTranscript
         self.onCompleted = onCompleted
         self.onError = onError
+        self.primaryInterviewLanguage = Self.detectDeviceInterviewLanguage()
         self.voiceStressAnalysisService.onResult = { [weak self] emotion, confidence in
             self?.onVoiceAnalysisResult(emotion, confidence)
         }
@@ -297,7 +311,7 @@ final class OpenAIRealtimeInterviewSession {
         try await sendEvent([
             "type": "response.create",
             "response": [
-                "instructions": "Speak exactly this English introduction and do not ask any interview question: \"\(introductionText)\""
+                "instructions": "Speak exactly this \(primaryInterviewLanguage.rawValue) introduction and do not ask any interview question: \"\(introductionText)\""
             ]
         ])
     }
@@ -671,8 +685,8 @@ final class OpenAIRealtimeInterviewSession {
             beginAssistantAudioTurn(purpose: .interview)
             let hasCVContext = configuration.resolvedCVText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
             let firstQuestionInstruction = hasCVContext
-                ? "Ask the first real counted interview question now in English. Do not greet again, do not mention question numbers, and do not ask any separate starter question. When the candidate's CV contains a project, experience, or skill directly relevant to this role, opening with a question grounded in that specific detail is strongly preferred over a generic opener — but do not announce that you read their CV."
-                : "Ask the first real counted interview question now in English. Do not greet again, do not mention question numbers, and do not ask any separate starter question."
+                ? "Ask the first real counted interview question now in \(primaryInterviewLanguage.rawValue). Do not greet again, do not mention question numbers, and do not ask any separate starter question. When the candidate's CV contains a project, experience, or skill directly relevant to this role, opening with a question grounded in that specific detail is strongly preferred over a generic opener — but do not announce that you read their CV."
+                : "Ask the first real counted interview question now in \(primaryInterviewLanguage.rawValue). Do not greet again, do not mention question numbers, and do not ask any separate starter question."
             try await sendEvent([
                 "type": "response.create",
                 "response": [
@@ -701,6 +715,19 @@ final class OpenAIRealtimeInterviewSession {
     private static func pcm16DurationMilliseconds(_ data: Data) -> Double {
         let sampleCount = Double(data.count / MemoryLayout<Int16>.size)
         return sampleCount / 24_000 * 1_000
+    }
+
+    /// Seeds `primaryInterviewLanguage` from the same locale the app's own UI
+    /// localization is driven by, so the AI interviewer's spoken language
+    /// matches the app language the candidate is already using — instead of
+    /// always defaulting to English.
+    ///
+    /// Falls back to `.english` for any locale that isn't Arabic. Extend this
+    /// switch (and the `InterviewLanguage` enum) if more spoken languages are
+    /// added later.
+    private static func detectDeviceInterviewLanguage() -> InterviewLanguage {
+        let languageCode = Locale.current.language.languageCode?.identifier ?? "en"
+        return languageCode.hasPrefix("ar") ? .arabic : .english
     }
 
     private static func requestedInterviewLanguage(in text: String) -> InterviewLanguage? {
