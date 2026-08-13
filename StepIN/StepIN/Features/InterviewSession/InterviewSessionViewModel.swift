@@ -130,6 +130,8 @@ final class InterviewSessionViewModel {
             phaseTask = Task { [weak self] in
                 do {
                     try await realtimeSession.start()
+                } catch let error as RealtimeSessionError {
+                    self?.handleRealtimeError(error)
                 } catch {
                     self?.handleRealtimeError(RealtimeSessionError(message: error.localizedDescription, type: "startup", code: nil, param: nil))
                 }

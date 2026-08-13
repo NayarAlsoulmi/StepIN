@@ -33,6 +33,15 @@ enum PreviewData {
         return container
     }()
 
+    /// Preview-only container with no profile for the authentication route.
+    static let emptyAuthContainer: ModelContainer = {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        return try! ModelContainer(
+            for: Schema(StepINSchema.models),
+            configurations: config
+        )
+    }()
+
     static func sampleProfile() -> UserProfile {
         UserProfile(firstName: "Nayar", lastName: "Alsoulmi", email: "nayar@example.com")
     }

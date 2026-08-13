@@ -38,7 +38,12 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
                 ],
                 [
                     "role": "user",
-                    "content": transcriptText(transcript, isPartial: isPartial, completedQuestionCount: completedQuestionCount)
+                    "content": transcriptText(
+                        transcript,
+                        configuration: configuration,
+                        isPartial: isPartial,
+                        completedQuestionCount: completedQuestionCount
+                    )
                 ]
             ],
             "text": [
@@ -107,6 +112,8 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
         - Do not penalize untested capabilities. Treat unobserved dimensions as insufficient evidence, not weaknesses.
         - Prefer recurring patterns over isolated mistakes.
         - The CV provides context for interview questions only. Skills, projects, experience, and certifications listed on the CV do not constitute performance evidence and must not generate scores, strengths, weaknesses, or goals. Only the candidate's actual spoken answers in the transcript are performance evidence.
+        - Distinguish transcript facts from performance qualities. A bare fact such as "collected and labeled dataset" is not a Strength. A Strength must evaluate how well the candidate communicated, reasoned, showed ownership, gave evidence, adapted, quantified impact, aligned with the role, or handled the interview.
+        - Off-topic, non-answer, nonsense, filler-only, or refusal turns are interview-performance evidence. Repeated unrelated answers should reduce relevance, communication, answer quality, and interview skills. Do not over-penalize a single brief playful aside if the rest of the interview is strong.
 
         Scoring rules:
         - overallScore must be 0-100 and reflect general performance across dimensions actually observed.
@@ -114,6 +121,8 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
         - Adapt the meaning and weighting of those scores to the Job Title, actual interview coverage, CV, job description, and observed answers.
         - Do not make every dimension equal weight by default. Redistribute emphasis across observed dimensions.
         - For confidence, combine answer content with reliable delivery evidence from the transcript when available, but do not infer internal emotional state.
+        - Answer relevance, completeness, specificity, and interview participation must affect scores. CV/JD fit alone must not produce a high score.
+        - No meaningful candidate participation should result in very low scores, not a normal partial-interview score.
 
         Feedback rules:
         - Strengths: target 4, return fewer when evidence is insufficient. Each must express one clear evidence-backed strength in specific, natural language.
@@ -125,6 +134,7 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
         - Areas should usually be 6-12 words. Do not compress to a vague label. Two lines are acceptable when they add specificity; padding is not.
         - Avoid opener filler such as "Would benefit from", "Could improve by", "In future interviews", "Consider working on", or "Try to".
         - Target this level of specificity: "Provide more detail when explaining technical implementation", "Structure longer answers with a clearer sequence", "Include measurable outcomes when discussing project impact". Do not copy these — generate from the actual interview.
+        - Areas to Improve should name the interview-performance issue, such as unclear individual contribution, weak specificity, missing validation method, unclear structure, off-topic response, limited relevance, unquantified impact, or less steady delivery during difficult answers.
         - Goals: up to 3. Each goal must derive directly from a supported Area to Improve and be specific, achievable, and connected to this interview.
         - Each goal string must be one short, meaningful action statement that answers only: "What should this candidate improve?"
         - Prefer 5-9 words. Never exceed 10 words.
@@ -139,6 +149,10 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
         - Do not recommend STAR for technical knowledge, ML knowledge, iOS knowledge, design reasoning, architecture, problem solving, confidence, concise answers, CV clarity, tool knowledge, decision-making, company motivation, or domain knowledge unless the actual weakness is behavioral story structure.
         - For technical or role-specific weaknesses, make the goal directly address the real gap, such as explaining decisions, trade-offs, outcomes, implementation reasoning, research methods, or domain concepts more clearly.
         - Return summary as an empty string.
+
+        Internal evidence model:
+        - The transcript may include per-answer evidence lines with relevance, completeness, specificity, structure, CV/JD relevance, and voice evidence.
+        - Use those evidence lines to improve consistency, but never expose the internal labels, raw metadata, hidden weights, or evidence model to the user.
 
         Voice classification evidence (per-answer, when present in transcript):
         - Each candidate response may be followed by a [Voice classification: Label, confidence X%] line.
@@ -195,15 +209,32 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
         return lines.joined(separator: "\n")
     }
 
-    private func transcriptText(_ transcript: [TranscriptEntry], isPartial: Bool, completedQuestionCount: Int) -> String {
+    private func transcriptText(
+        _ transcript: [TranscriptEntry],
+        configuration: InterviewConfiguration,
+        isPartial: Bool,
+        completedQuestionCount: Int
+    ) -> String {
+        var latestQuestion = "No preceding interviewer question captured"
+        var answerIndex = 0
         let lines = transcript.flatMap { entry -> [String] in
             let speaker = entry.speaker == .candidate ? "Candidate" : "AI Interviewer"
             var parts = ["\(speaker): \(entry.text)"]
+            if entry.speaker == .interviewer {
+                latestQuestion = entry.text
+            }
             if entry.speaker == .candidate,
-               let voice = entry.voiceResult,
-               voice.confidence >= 0.60 {
-                let pct = Int((voice.confidence * 100).rounded())
-                parts.append("  [Voice classification: \(voice.label), confidence \(pct)%]")
+               entry.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+                answerIndex += 1
+                parts.append("  [Answer evidence \(answerIndex): question context: \(latestQuestion)]")
+                parts.append("  [Answer evidence \(answerIndex): relevance: \(AnswerRelevanceClassifier.classify(entry.text).rawValue)]")
+                parts.append("  [Answer evidence \(answerIndex): completeness: \(Self.completenessLabel(for: entry.text)); specificity: \(Self.specificityLabel(for: entry.text)); structure: \(Self.structureLabel(for: entry.text))]")
+                parts.append("  [Answer evidence \(answerIndex): CV/JD relevance: \(Self.contextRelevanceLabel(answer: entry.text, configuration: configuration))]")
+                if let voice = entry.voiceResult,
+                   voice.confidence >= 0.60 {
+                    let pct = Int((voice.confidence * 100).rounded())
+                    parts.append("  [Voice classification: \(voice.label), confidence \(pct)%]")
+                }
             }
             return parts
         }.joined(separator: "\n")
@@ -215,6 +246,40 @@ final class OpenAIAnalysisService: InterviewAnalysisServiceProtocol {
         Transcript:
         \(lines)
         """
+    }
+
+    private static func completenessLabel(for text: String) -> String {
+        let wordCount = text.split(separator: " ").count
+        if wordCount < 6 { return "very limited" }
+        if wordCount < 20 { return "partial" }
+        return "substantive"
+    }
+
+    private static func specificityLabel(for text: String) -> String {
+        let lower = text.lowercased()
+        let specificitySignals = ["because", "for example", "result", "impact", "measured", "tested", "validated", "led", "built", "designed", "implemented", "decided", "%", "users", "customers"]
+        let count = specificitySignals.reduce(0) { $0 + (lower.contains($1) ? 1 : 0) }
+        if count >= 3 { return "specific" }
+        if count >= 1 { return "some specifics" }
+        return "generic"
+    }
+
+    private static func structureLabel(for text: String) -> String {
+        let lower = text.lowercased()
+        let structureSignals = ["first", "then", "after that", "because", "so", "the result", "finally", "what i did"]
+        return structureSignals.contains { lower.contains($0) } ? "structured" : "unclear or unstructured"
+    }
+
+    private static func contextRelevanceLabel(answer: String, configuration: InterviewConfiguration) -> String {
+        let answerWords = Set(answer.lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init).filter { $0.count > 3 })
+        let cvWords = Set((configuration.resolvedCVText ?? "").lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init).filter { $0.count > 3 })
+        let jdWords = Set((configuration.jobDescription ?? "").lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init).filter { $0.count > 3 })
+        let cvOverlap = !answerWords.isDisjoint(with: cvWords)
+        let jdOverlap = !answerWords.isDisjoint(with: jdWords)
+        if cvOverlap && jdOverlap { return "CV and JD related" }
+        if cvOverlap { return "CV related" }
+        if jdOverlap { return "JD related" }
+        return "general or not context-grounded"
     }
 
     private func extractOutputText(from data: Data) throws -> String {

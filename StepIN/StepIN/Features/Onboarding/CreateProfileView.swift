@@ -14,6 +14,7 @@ struct CreateProfileView: View {
     let onFinished: () -> Void
 
     @Environment(\.modelContext) private var context
+    @Query private var profiles: [UserProfile]
 
     @State private var firstName = ""
     @State private var lastName = ""
@@ -59,6 +60,20 @@ struct CreateProfileView: View {
             .background(StepINScreenBackground())
             .navigationTitle("Create Profile")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear(perform: prefillFromIncompleteProfile)
+        }
+    }
+
+    private func prefillFromIncompleteProfile() {
+        guard let profile = profiles.first else { return }
+        if firstName.stepINTrimmed.isEmpty {
+            firstName = profile.firstName
+        }
+        if lastName.stepINTrimmed.isEmpty {
+            lastName = profile.lastName ?? ""
+        }
+        if email.stepINTrimmed.isEmpty {
+            email = profile.email ?? ""
         }
     }
 
@@ -69,12 +84,16 @@ struct CreateProfileView: View {
         let trimmedLast = lastName.trimmingCharacters(in: .whitespaces)
         let trimmedEmail = email.trimmingCharacters(in: .whitespaces)
 
-        let profile = UserProfile(
-            firstName: trimmedFirst,
-            lastName: trimmedLast.isEmpty ? nil : trimmedLast,
-            email: trimmedEmail.isEmpty ? nil : trimmedEmail
-        )
-        context.insert(profile)
+        let profile = profiles.first ?? UserProfile(firstName: trimmedFirst)
+        if profiles.first == nil {
+            context.insert(profile)
+        }
+        profile.firstName = trimmedFirst
+        profile.lastName = trimmedLast.isEmpty ? nil : trimmedLast
+        if !trimmedEmail.isEmpty {
+            profile.email = trimmedEmail
+        }
+        profile.updatedAt = .now
         onFinished()
     }
 }

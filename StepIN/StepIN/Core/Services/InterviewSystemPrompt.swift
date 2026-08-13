@@ -14,16 +14,28 @@ enum InterviewSystemPrompt {
         includeOpeningInstructions: Bool = true
     ) -> String {
         let candidateName = configuration.candidateFirstName.nilIfBlank ?? "Not provided"
+        let context = InterviewContext(configuration: configuration)
         let greeting = configuration.candidateFirstName.nilIfBlank.map {
             "Hello, \($0). I'm your AI Interviewer, and I'll be conducting your interview today."
         } ?? "Hello, I'm your AI Interviewer, and I'll be conducting your interview today."
         let cvEntry: String = {
-            guard let cv = configuration.resolvedCVText?.nilIfBlank else {
+            guard context.hasCV else {
                 return "- CV: Not provided"
             }
+            let anchors = context.cvAnchors.prefix(6).map { "- \($0.promptLine)" }.joined(separator: "\n")
             return """
-            - CV (treat this as pre-interview research you have already read — use it to ask grounded, specific questions about the candidate's actual experience, projects, and skills rather than generic questions. You do not need to announce that you read their CV):
-            \(cv)
+            - CV structured anchors (treat as pre-interview research; ask about specific anchors, not generic CV summaries):
+            \(anchors)
+            """
+        }()
+        let jdEntry: String = {
+            guard context.hasJD else {
+                return "- Job Description: Not provided"
+            }
+            let anchors = context.jdAnchors.prefix(6).map { "- \($0.promptLine)" }.joined(separator: "\n")
+            return """
+            - Job Description structured anchors:
+            \(anchors)
             """
         }()
         let openingInstructions = includeOpeningInstructions
@@ -81,10 +93,11 @@ enum InterviewSystemPrompt {
         Interview inputs:
         - Job Title: \(configuration.jobTitle)
         - Company: \(configuration.company?.nilIfBlank ?? "Not provided")
-        - Job Description: \(configuration.jobDescription?.nilIfBlank ?? "Not provided")
+        \(jdEntry)
         \(cvEntry)
         - Counted question budget: \(configuration.questionCount.rawValue)
         - Candidate first name: \(candidateName)
+        - Candidate level signal: \(context.candidateLevel ?? "Not inferred")
 
         \(openingInstructions)
 

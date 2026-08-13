@@ -111,6 +111,9 @@ final class OpenAIRealtimeInterviewSession {
     private var hasDeliveredIntroduction = false
     private var currentAssistantTurnPurpose: AssistantTurnPurpose = .interview
     private var didStartIntroductionAudio = false
+    private let conversationController: InterviewConversationController
+    private var pendingAssistantTurnCountsTowardTotal = false
+    private var currentStartupPhase: RealtimeStartupPhase = .notStarted
 
     // MARK: — Candidate turn / transcript identity
 
@@ -149,20 +152,50 @@ final class OpenAIRealtimeInterviewSession {
         self.onCandidateTranscript = onCandidateTranscript
         self.onCompleted = onCompleted
         self.onError = onError
+        self.conversationController = InterviewConversationController(configuration: configuration)
         self.voiceStressAnalysisService.onResult = { [weak self] emotion, confidence in
             self?.onVoiceAnalysisResult(emotion, confidence)
         }
     }
 
     func start() async throws {
-        onStateChange(.preparing)
-        try configureAudioSession()
-        configurePlayback()
-        try connectWebSocket()
-        try await sendSessionUpdate()
-        try startMicrophoneCapture()
-        try await requestOpeningTurn()
-        onStateChange(.speaking)
+        do {
+            onStateChange(.preparing)
+            setStartupPhase(.audioSetup)
+            try configureAudioSession()
+            configurePlayback()
+            setStartupPhase(.connect)
+            try connectWebSocket()
+            setStartupPhase(.sessionUpdate)
+            try await sendSessionUpdate()
+            setStartupPhase(.audioSetup)
+            try startMicrophoneCapture()
+            setStartupPhase(.responseCreate)
+            try await requestOpeningTurn()
+            logStartupFlag("responseCreateSent", true)
+            setStartupPhase(.completed)
+            onStateChange(.speaking)
+        } catch let error as RealtimeStartupFailure {
+            throw RealtimeSessionError(
+                message: error.localizedDescription,
+                type: "startup",
+                code: nil,
+                param: nil,
+                diagnostics: error.diagnostics
+            )
+        } catch let error as RealtimeSessionError {
+            throw error
+        } catch {
+            let diagnostics = startupDiagnostics(for: error, phase: currentStartupPhase)
+            logStartupDiagnostics(diagnostics)
+            throw RealtimeSessionError(
+                message: error.localizedDescription,
+                type: "startup",
+                code: nil,
+                param: nil,
+                diagnostics: diagnostics
+            )
+        }
     }
 
     func pause() {
@@ -234,6 +267,8 @@ final class OpenAIRealtimeInterviewSession {
         hasDeliveredIntroduction = false
         currentAssistantTurnPurpose = .interview
         didStartIntroductionAudio = false
+        pendingAssistantTurnCountsTowardTotal = false
+        logSocketSnapshot(prefix: "preStop")
         playerNode.stop()
         playbackEngine.stop()
         webSocketTask?.cancel(with: .goingAway, reason: nil)
@@ -255,6 +290,8 @@ final class OpenAIRealtimeInterviewSession {
         webSocketTask = task
         task.resume()
         isConnected = true
+        logStartupFlag("socketOpened", true)
+        logSocketSnapshot(prefix: "afterConnect")
         receiveTask = Task { [weak self] in await self?.receiveLoop() }
     }
 
@@ -288,7 +325,8 @@ final class OpenAIRealtimeInterviewSession {
                 ]
             ]
         ]
-        try await sendEvent(event)
+        try await sendEvent(event, startupPhase: .sessionUpdate)
+        logStartupFlag("sessionUpdateSent", true)
     }
 
     private func requestOpeningTurn() async throws {
@@ -299,14 +337,41 @@ final class OpenAIRealtimeInterviewSession {
             "response": [
                 "instructions": "Speak exactly this English introduction and do not ask any interview question: \"\(introductionText)\""
             ]
-        ])
+        ], startupPhase: .responseCreate)
     }
 
-    private func sendEvent(_ event: [String: Any]) async throws {
-        guard let webSocketTask else { throw RealtimeError.notConnected }
-        let data = try JSONSerialization.data(withJSONObject: event)
-        guard let text = String(data: data, encoding: .utf8) else { throw RealtimeError.encodingFailed }
-        try await webSocketTask.send(.string(text))
+    private func sendEvent(_ event: [String: Any], startupPhase: RealtimeStartupPhase? = nil) async throws {
+        if let startupPhase {
+            setStartupPhase(startupPhase)
+        }
+        guard let webSocketTask else {
+            let diagnostics = startupDiagnostics(for: RealtimeError.notConnected, phase: startupPhase ?? currentStartupPhase)
+            logStartupDiagnostics(diagnostics)
+            throw RealtimeStartupFailure(diagnostics: diagnostics)
+        }
+
+        let data: Data
+        do {
+            data = try JSONSerialization.data(withJSONObject: event)
+        } catch {
+            let diagnostics = startupDiagnostics(for: error, phase: startupPhase ?? currentStartupPhase)
+            logStartupDiagnostics(diagnostics)
+            throw RealtimeStartupFailure(diagnostics: diagnostics)
+        }
+
+        guard let text = String(data: data, encoding: .utf8) else {
+            let diagnostics = startupDiagnostics(for: RealtimeError.encodingFailed, phase: startupPhase ?? currentStartupPhase)
+            logStartupDiagnostics(diagnostics)
+            throw RealtimeStartupFailure(diagnostics: diagnostics)
+        }
+
+        do {
+            try await webSocketTask.send(.string(text))
+        } catch {
+            let diagnostics = startupDiagnostics(for: error, phase: startupPhase ?? currentStartupPhase)
+            logStartupDiagnostics(diagnostics)
+            throw RealtimeStartupFailure(diagnostics: diagnostics)
+        }
     }
 
     private func receiveLoop() async {
@@ -325,7 +390,15 @@ final class OpenAIRealtimeInterviewSession {
                 }
             } catch {
                 guard !didComplete else { return }
-                reportError(RealtimeSessionError(message: error.localizedDescription, type: "websocket_receive", code: nil, param: nil))
+                let diagnostics = startupDiagnostics(for: error, phase: currentStartupPhase)
+                logStartupDiagnostics(diagnostics)
+                reportError(RealtimeSessionError(
+                    message: error.localizedDescription,
+                    type: "websocket_receive",
+                    code: nil,
+                    param: nil,
+                    diagnostics: diagnostics
+                ))
                 return
             }
         }
@@ -400,6 +473,7 @@ final class OpenAIRealtimeInterviewSession {
             finishAssistantPlaybackIfReady()
         case "error":
             let error = RealtimeSessionError(openAIEvent: object)
+            logOpenAIErrorEvent(object)
             if error.isEmptyAudioCommit {
                 recoverFromEmptyAudioCommit()
             } else {
@@ -567,16 +641,16 @@ final class OpenAIRealtimeInterviewSession {
         candidateResponseInFlight = true
         uploadedCandidateAudioDurationMs = 0
         serverVADStoppedCurrentTurn = false
-        beginAssistantAudioTurn(purpose: .interview)
         do {
             // Emit exactly one candidate transcript entry for this logical turn.
             // Joins all transcription.completed texts received since speech_started.
             // Marks the turn as emitted so any late-arriving transcription.completed
             // event will update the existing entry rather than append a new one.
+            let textToEmit: String
             if let turnID = activeCandidateTurnID {
                 let parts = candidateTranscriptAccumulator[turnID] ?? []
                 let accumulated = parts.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
-                let textToEmit = accumulated.isEmpty
+                textToEmit = accumulated.isEmpty
                     ? candidateTextBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
                     : accumulated
                 emittedCandidateTurnIDs.insert(turnID)
@@ -584,11 +658,27 @@ final class OpenAIRealtimeInterviewSession {
                     onCandidateTranscript(turnID, textToEmit)
                 }
                 activeCandidateTurnID = nil
+            } else {
+                textToEmit = candidateTextBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
             }
             // Notify the analyzer that this candidate turn is complete before
             // sending response.create, so the turn boundary is captured accurately.
             await localAnalyzer.markTurnComplete()
-            try await sendEvent(["type": "response.create"])
+            let action = conversationController.nextAction(
+                after: textToEmit,
+                countedQuestionCount: countedQuestionCount
+            )
+            pendingAssistantTurnCountsTowardTotal = action.countsTowardTotal
+            beginAssistantAudioTurn(purpose: action.isFinalClose ? .closing : .interview)
+            try await sendEvent([
+                "type": "response.create",
+                "response": [
+                    "instructions": conversationController.instructions(
+                        for: action,
+                        language: primaryInterviewLanguage.rawValue
+                    )
+                ]
+            ])
             onStateChange(.thinking)
         } catch {
             reportError(RealtimeSessionError(message: error.localizedDescription, type: "response_create", code: nil, param: nil))
@@ -668,15 +758,16 @@ final class OpenAIRealtimeInterviewSession {
         guard hasDeliveredIntroduction, !didComplete, !didReportError else { return }
         do {
             try await sendInProgressSessionUpdate()
+            let action = conversationController.openingAction()
+            pendingAssistantTurnCountsTowardTotal = action.countsTowardTotal
             beginAssistantAudioTurn(purpose: .interview)
-            let hasCVContext = configuration.resolvedCVText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-            let firstQuestionInstruction = hasCVContext
-                ? "Ask the first real counted interview question now in English. Do not greet again, do not mention question numbers, and do not ask any separate starter question. When the candidate's CV contains a project, experience, or skill directly relevant to this role, opening with a question grounded in that specific detail is strongly preferred over a generic opener — but do not announce that you read their CV."
-                : "Ask the first real counted interview question now in English. Do not greet again, do not mention question numbers, and do not ask any separate starter question."
             try await sendEvent([
                 "type": "response.create",
                 "response": [
-                    "instructions": firstQuestionInstruction
+                    "instructions": conversationController.instructions(
+                        for: action,
+                        language: primaryInterviewLanguage.rawValue
+                    )
                 ]
             ])
             onStateChange(.thinking)
@@ -897,29 +988,26 @@ final class OpenAIRealtimeInterviewSession {
         if shouldCountAssistantTurn(trimmed) {
             countedQuestionCount = min(countedQuestionCount + 1, configuration.questionCount.rawValue)
         }
+        conversationController.markAssistantTurnCompleted(
+            counted: pendingAssistantTurnCountsTowardTotal,
+            text: trimmed
+        )
+        pendingAssistantTurnCountsTowardTotal = false
         assistantTextBuffer = ""
     }
 
     private func shouldCountAssistantTurn(_ text: String) -> Bool {
-        guard text.contains("?") else { return false }
-        if text.localizedCaseInsensitiveContains("anything you'd like to add before we conclude") { return false }
-        if text.localizedCaseInsensitiveContains("anything you'd like to add or ask before we conclude") { return false }
-        if text.localizedCaseInsensitiveContains("anything you'd like to ask or add") { return false }
-        if text.localizedCaseInsensitiveContains("before we wrap up") { return false }
-        if text.localizedCaseInsensitiveContains("take your time") { return false }
-        if text.localizedCaseInsensitiveContains("could you repeat") { return false }
-        if text.localizedCaseInsensitiveContains("would you like me to repeat") { return false }
-        if text.localizedCaseInsensitiveContains("let me rephrase") { return false }
-        if text.localizedCaseInsensitiveContains("sorry, could you repeat") { return false }
-        if text.localizedCaseInsensitiveContains("i didn't quite catch") { return false }
-        if text.localizedCaseInsensitiveContains("could you clarify") { return false }
-        if text.localizedCaseInsensitiveContains("could you give me a specific example") { return false }
-        return countedQuestionCount < configuration.questionCount.rawValue
+        pendingAssistantTurnCountsTowardTotal && countedQuestionCount < configuration.questionCount.rawValue
     }
 
     private func reportError(_ error: RealtimeSessionError) {
         guard !didComplete, !didReportError else { return }
         didReportError = true
+        if let diagnostics = error.diagnostics {
+            logStartupDiagnostics(diagnostics)
+        } else {
+            logSocketSnapshot(prefix: "preErrorStop")
+        }
         stop()
         onStateChange(.error)
         onError(error)
@@ -942,6 +1030,117 @@ final class OpenAIRealtimeInterviewSession {
         onStateChange(.completed)
         onCompleted(isPartial, countedQuestionCount)
     }
+
+    private func setStartupPhase(_ phase: RealtimeStartupPhase) {
+        currentStartupPhase = phase
+        #if DEBUG
+        print("[RealtimeStartup] phase=\(phase.rawValue)")
+        #endif
+    }
+
+    private func startupDiagnostics(for error: Error, phase: RealtimeStartupPhase) -> RealtimeStartupDiagnostics {
+        let nsError = error as NSError
+        let closeCode = webSocketTask?.closeCode.rawValue
+        let closeReason = webSocketTask?.closeReason.flatMap { String(data: $0, encoding: .utf8) }
+        let httpStatus = (webSocketTask?.response as? HTTPURLResponse)?.statusCode
+        return RealtimeStartupDiagnostics(
+            phase: phase.rawValue,
+            underlyingDomain: nsError.domain,
+            underlyingCode: nsError.code,
+            localizedDescription: nsError.localizedDescription,
+            closeCode: closeCode,
+            closeReason: closeReason,
+            httpStatus: httpStatus,
+            openAIErrorType: nil,
+            openAIErrorCode: nil,
+            openAIErrorMessage: nil,
+            openAIErrorParam: nil
+        )
+    }
+
+    private func logSocketSnapshot(prefix: String) {
+        #if DEBUG
+        let closeCode = webSocketTask?.closeCode.rawValue
+        let closeReason = webSocketTask?.closeReason.flatMap { String(data: $0, encoding: .utf8) }
+        let httpStatus = (webSocketTask?.response as? HTTPURLResponse)?.statusCode
+        print("[RealtimeStartup] \(prefix).closeCode=\(closeCode.map(String.init) ?? "nil")")
+        print("[RealtimeStartup] \(prefix).closeReason=\(closeReason ?? "nil")")
+        print("[RealtimeStartup] \(prefix).httpStatus=\(httpStatus.map(String.init) ?? "nil")")
+        #endif
+    }
+
+    private func logStartupFlag(_ name: String, _ value: Bool) {
+        #if DEBUG
+        print("[RealtimeStartup] \(name)=\(value)")
+        #endif
+    }
+
+    private func logStartupDiagnostics(_ diagnostics: RealtimeStartupDiagnostics) {
+        #if DEBUG
+        print("[RealtimeStartup] phase=\(diagnostics.phase)")
+        print("[RealtimeStartup] underlyingDomain=\(diagnostics.underlyingDomain ?? "nil")")
+        print("[RealtimeStartup] underlyingCode=\(diagnostics.underlyingCode.map(String.init) ?? "nil")")
+        print("[RealtimeStartup] localizedDescription=\(diagnostics.localizedDescription ?? "nil")")
+        print("[RealtimeStartup] closeCode=\(diagnostics.closeCode.map(String.init) ?? "nil")")
+        print("[RealtimeStartup] closeReason=\(diagnostics.closeReason ?? "nil")")
+        print("[RealtimeStartup] httpStatus=\(diagnostics.httpStatus.map(String.init) ?? "nil")")
+        print("[RealtimeStartup] openAIErrorType=\(diagnostics.openAIErrorType ?? "nil")")
+        print("[RealtimeStartup] openAIErrorCode=\(diagnostics.openAIErrorCode ?? "nil")")
+        print("[RealtimeStartup] openAIErrorMessage=\(diagnostics.openAIErrorMessage ?? "nil")")
+        print("[RealtimeStartup] openAIErrorParam=\(diagnostics.openAIErrorParam ?? "nil")")
+        #endif
+    }
+
+    private func logOpenAIErrorEvent(_ object: [String: Any]) {
+        #if DEBUG
+        let error = object["error"] as? [String: Any]
+        let diagnostics = RealtimeStartupDiagnostics(
+            phase: currentStartupPhase.rawValue,
+            underlyingDomain: nil,
+            underlyingCode: nil,
+            localizedDescription: nil,
+            closeCode: webSocketTask?.closeCode.rawValue,
+            closeReason: webSocketTask?.closeReason.flatMap { String(data: $0, encoding: .utf8) },
+            httpStatus: (webSocketTask?.response as? HTTPURLResponse)?.statusCode,
+            openAIErrorType: error?["type"] as? String,
+            openAIErrorCode: error?["code"] as? String,
+            openAIErrorMessage: error?["message"] as? String,
+            openAIErrorParam: error?["param"] as? String
+        )
+        logStartupDiagnostics(diagnostics)
+        #endif
+    }
+}
+
+private enum RealtimeStartupPhase: String, Sendable {
+    case notStarted = "notStarted"
+    case audioSetup = "audio setup"
+    case connect = "connect"
+    case sessionUpdate = "session.update"
+    case responseCreate = "response.create"
+    case completed = "completed"
+}
+
+struct RealtimeStartupDiagnostics: Equatable, Sendable {
+    let phase: String
+    let underlyingDomain: String?
+    let underlyingCode: Int?
+    let localizedDescription: String?
+    let closeCode: Int?
+    let closeReason: String?
+    let httpStatus: Int?
+    let openAIErrorType: String?
+    let openAIErrorCode: String?
+    let openAIErrorMessage: String?
+    let openAIErrorParam: String?
+}
+
+private struct RealtimeStartupFailure: Error, LocalizedError {
+    let diagnostics: RealtimeStartupDiagnostics
+
+    var errorDescription: String? {
+        diagnostics.localizedDescription ?? "Realtime startup failed during \(diagnostics.phase)."
+    }
 }
 
 struct RealtimeSessionError: Error, Equatable, Sendable {
@@ -949,12 +1148,20 @@ struct RealtimeSessionError: Error, Equatable, Sendable {
     let type: String?
     let code: String?
     let param: String?
+    let diagnostics: RealtimeStartupDiagnostics?
 
-    init(message: String, type: String?, code: String?, param: String?) {
+    init(
+        message: String,
+        type: String?,
+        code: String?,
+        param: String?,
+        diagnostics: RealtimeStartupDiagnostics? = nil
+    ) {
         self.message = message
         self.type = type
         self.code = code
         self.param = param
+        self.diagnostics = diagnostics
     }
 
     init(openAIEvent: [String: Any]) {
@@ -963,6 +1170,19 @@ struct RealtimeSessionError: Error, Equatable, Sendable {
         self.type = error?["type"] as? String
         self.code = error?["code"] as? String
         self.param = error?["param"] as? String
+        self.diagnostics = RealtimeStartupDiagnostics(
+            phase: "openAI.error",
+            underlyingDomain: nil,
+            underlyingCode: nil,
+            localizedDescription: self.message,
+            closeCode: nil,
+            closeReason: nil,
+            httpStatus: nil,
+            openAIErrorType: self.type,
+            openAIErrorCode: self.code,
+            openAIErrorMessage: self.message,
+            openAIErrorParam: self.param
+        )
     }
 
     var displayMessage: String {

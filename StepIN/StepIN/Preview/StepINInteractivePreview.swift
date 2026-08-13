@@ -10,13 +10,13 @@
 //  3. Click the Live Preview button (▶) to enable interaction.
 //
 //  JOURNEY:
-//  Splash → Onboarding → Create Profile → Home → Start Interview
+//  Splash → Onboarding → Create Account → Home → Start Interview
 //  → Setup → AI Prep → Live Session → Analyzing → Results
 //  → Tab navigation: Interviews / Goals / Profile
 //
 //  Everything runs through the real production screens and navigation.
 //  The only preview-specific things here are:
-//  - AppState starting with hasCompletedOnboarding = false, hasProfile = false
+//  - AppState starting with hasCompletedOnboarding = false, isAuthenticated = false
 //  - PreviewData.container (in-memory, never touches production storage)
 //
 
@@ -30,7 +30,9 @@ import SwiftData
 private struct StepINInteractivePreview: View {
     @State private var appState = AppState(
         hasProfile: false,
-        hasCompletedOnboarding: false
+        hasCompletedOnboarding: false,
+        isAuthenticated: false,
+        currentUser: nil
     )
 
     var body: some View {

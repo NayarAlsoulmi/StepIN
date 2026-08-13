@@ -13,9 +13,11 @@ import UIKit
 struct ProfileView: View {
     var embedsInNavigationStack = true
 
+    @Environment(AppState.self) private var appState
     @Query private var profiles: [UserProfile]
 
     @State private var showEditProfile = false
+    @State private var showSignOutConfirmation = false
 
     private var profile: UserProfile? { profiles.first }
     private var profileImage: UIImage? {
@@ -39,6 +41,7 @@ struct ProfileView: View {
                 profileTopBar
                 header
                 profileFields
+                signOutButton
             }
             .padding(.horizontal, StepINSpacing.screenH)
             .padding(.top, StepINSpacing.md)
@@ -50,6 +53,14 @@ struct ProfileView: View {
             if let profile {
                 EditProfileView(profile: profile)
             }
+        }
+        .alert("Sign out?", isPresented: $showSignOutConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Sign Out", role: .destructive) {
+                appState.signOut()
+            }
+        } message: {
+            Text("Your interviews, goals, analyses, and profile stay on this device.")
         }
     }
 
@@ -97,6 +108,12 @@ struct ProfileView: View {
         }
     }
 
+    private var signOutButton: some View {
+        StepINDestructiveButton(title: "Sign Out") {
+            showSignOutConfirmation = true
+        }
+    }
+
     private func profileRow(label: String, value: String?) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: StepINSpacing.md) {
             Text(label)
@@ -133,5 +150,6 @@ private extension String {
 
 #Preview {
     ProfileView()
+        .environment(AppState(hasProfile: true, hasCompletedOnboarding: true, isAuthenticated: true))
         .modelContainer(PreviewData.container)
 }
