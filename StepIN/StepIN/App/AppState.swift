@@ -6,7 +6,6 @@
 //  feature-specific logic lives here.
 //
 
-import AuthenticationServices
 import SwiftUI
 
 /// Bridge used by App Intents to request navigation in the running app.

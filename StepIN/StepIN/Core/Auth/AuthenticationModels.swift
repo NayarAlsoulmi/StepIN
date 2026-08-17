@@ -66,7 +66,7 @@ enum StepINAuthenticationError: LocalizedError, Equatable {
         case .appleCredentialUnavailable:
             "Apple could not provide the sign-in credential."
         case .appleAuthorizationFailed:
-            "Continue with Apple could not be completed. Try again."
+            "Apple authorization could not be completed. Try again."
         case .appleCredentialRevoked:
             "Your Apple sign-in session expired. Please sign in again."
         case .networkUnavailable:

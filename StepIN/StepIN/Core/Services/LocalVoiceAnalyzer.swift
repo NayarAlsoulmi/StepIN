@@ -16,6 +16,16 @@
 import Foundation
 
 actor LocalVoiceAnalyzer {
+    struct TurnSnapshot: Sendable {
+        let isSpeaking: Bool
+        let confirmedSilenceMs: Double
+        let recentEnergyMean: Double
+        let speechEnergyMean: Double
+
+        var audioEndCue: Bool {
+            confirmedSilenceMs >= 700 && recentEnergyMean < max(0.006, speechEnergyMean * 0.45)
+        }
+    }
 
     // MARK: — Configuration
 
@@ -70,6 +80,8 @@ actor LocalVoiceAnalyzer {
     private var rmsSum = 0.0
     private var rmsSumSquared = 0.0
     private var rmsObservationCount = 0
+    private var recentRMSValues: [Double] = []
+    private let recentRMSLimit = 8
 
     // MARK: — Turn accounting
 
@@ -89,6 +101,10 @@ actor LocalVoiceAnalyzer {
     func ingest(pcmData: Data) {
         let rms = computeRMS(pcmData)
         totalCandidateBufferCount += 1
+        recentRMSValues.append(Double(rms))
+        if recentRMSValues.count > recentRMSLimit {
+            recentRMSValues.removeFirst(recentRMSValues.count - recentRMSLimit)
+        }
 
         let aboveThreshold = rms >= speechRMSThreshold
 
@@ -145,6 +161,26 @@ actor LocalVoiceAnalyzer {
         consecutiveAboveThreshold = 0
         consecutiveBelowThreshold = 0
         isSpeaking = false
+        recentRMSValues = []
+    }
+
+    func turnSnapshot() -> TurnSnapshot {
+        let silenceMs: Double
+        if let silenceStartBufferIndex {
+            silenceMs = Double(max(0, totalCandidateBufferCount - silenceStartBufferIndex)) * bufferDurationMs
+        } else {
+            silenceMs = Double(consecutiveBelowThreshold) * bufferDurationMs
+        }
+        let recentMean = recentRMSValues.isEmpty
+            ? 0
+            : recentRMSValues.reduce(0, +) / Double(recentRMSValues.count)
+        let speechMean = rmsObservationCount > 0 ? rmsSum / Double(rmsObservationCount) : 0
+        return TurnSnapshot(
+            isSpeaking: isSpeaking,
+            confirmedSilenceMs: silenceMs,
+            recentEnergyMean: recentMean,
+            speechEnergyMean: speechMean
+        )
     }
 
     // MARK: — Metrics export

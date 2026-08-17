@@ -29,7 +29,7 @@ struct StepINPrimaryButton: View {
                     if let systemImage {
                         Image(systemName: systemImage)
                     }
-                    Text(title)
+                    Text(LocalizedStringKey(title))
                 }
             }
             .font(StepINFont.button)
@@ -42,7 +42,7 @@ struct StepINPrimaryButton: View {
         }
         .buttonStyle(StepINPressStyle())
         .disabled(!isEnabled || isLoading)
-        .accessibilityLabel(Text(title))
+        .accessibilityLabel(Text(LocalizedStringKey(title)))
     }
 }
 
@@ -57,7 +57,7 @@ struct StepINSecondaryButton: View {
         Button(action: action) {
             HStack(spacing: StepINSpacing.xs) {
                 if let systemImage { Image(systemName: systemImage) }
-                Text(title)
+                Text(LocalizedStringKey(title))
             }
             .font(StepINFont.button)
             .foregroundColor(StepINColor.primary)
@@ -78,7 +78,7 @@ struct StepINDestructiveButton: View {
 
     var body: some View {
         Button(role: .destructive, action: action) {
-            Text(title)
+            Text(LocalizedStringKey(title))
                 .font(StepINFont.button)
                 .foregroundColor(StepINColor.error)
                 .frame(maxWidth: .infinity)
@@ -136,12 +136,12 @@ struct StepINSectionHeader: View {
 
     var body: some View {
         HStack {
-            Text(title)
+            Text(LocalizedStringKey(title))
                 .font(StepINFont.h3)
                 .foregroundColor(StepINColor.textPrimary)
             Spacer()
             if let actionTitle, let action {
-                Button(actionTitle, action: action)
+                Button(LocalizedStringKey(actionTitle), action: action)
                     .font(StepINFont.body3)
                     .foregroundColor(StepINColor.primary)
             }
@@ -161,11 +161,11 @@ struct StepINEmptyState: View {
     var body: some View {
         VStack(spacing: StepINSpacing.md) {
             RobotView(state: robotState, presentation: .emptyState)
-            Text(title)
+            Text(LocalizedStringKey(title))
                 .font(StepINFont.h3)
                 .foregroundColor(StepINColor.textPrimary)
                 .multilineTextAlignment(.center)
-            Text(message)
+            Text(LocalizedStringKey(message))
                 .font(StepINFont.bodyRegular)
                 .foregroundColor(StepINColor.textSecondary)
                 .multilineTextAlignment(.center)
@@ -189,7 +189,7 @@ struct StepINLoadingView: View {
     var body: some View {
         VStack(spacing: StepINSpacing.md) {
             RobotView(state: .thinking, presentation: .loading)
-            Text(message)
+            Text(LocalizedStringKey(message))
                 .font(StepINFont.body1)
                 .foregroundColor(StepINColor.textSecondary)
                 .multilineTextAlignment(.center)

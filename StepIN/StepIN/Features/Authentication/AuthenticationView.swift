@@ -2,11 +2,9 @@
 //  AuthenticationView.swift
 //  StepIN
 //
-//  Reusable sign-up/sign-in screen. Email/password stays provider-backed;
-//  Sign in with Apple uses Apple's native SwiftUI button.
+//  Reusable sign-up/sign-in screen. Email/password stays provider-backed.
 //
 
-import AuthenticationServices
 import SwiftData
 import SwiftUI
 import UIKit
@@ -190,21 +188,6 @@ struct AuthenticationView: View {
                 .disabled(isLoading)
             }
 
-            AuthDivider()
-
-            SignInWithAppleButton(.continue) { request in
-                request.requestedScopes = [.fullName, .email]
-                isLoading = true
-                errorMessage = nil
-            } onCompletion: { result in
-                handleAppleCompletion(result)
-            }
-            .signInWithAppleButtonStyle(.black)
-            .frame(height: 52)
-            .clipShape(RoundedRectangle(cornerRadius: StepINRadius.small, style: .continuous))
-            .disabled(isLoading)
-            .opacity(isLoading ? 0.55 : 1)
-
             modeSwitch
         }
     }
@@ -239,7 +222,7 @@ struct AuthenticationView: View {
             errorMessage = error.localizedDescription
             return
         } catch {
-            errorMessage = StepINAuthenticationError.appleAuthorizationFailed.localizedDescription
+            errorMessage = StepINAuthenticationError.networkUnavailable.localizedDescription
             return
         }
 
@@ -334,50 +317,6 @@ struct AuthenticationView: View {
                 errorMessage = StepINAuthenticationError.networkUnavailable.localizedDescription
             }
         }
-    }
-
-    private func handleAppleCompletion(_ result: Result<ASAuthorization, any Error>) {
-        switch result {
-        case .success(let authorization):
-            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
-                isLoading = false
-                errorMessage = StepINAuthenticationError.appleCredentialUnavailable.localizedDescription
-                return
-            }
-            Task {
-                defer { isLoading = false }
-                do {
-                    let (user, payload) = try await authenticationService.signInWithApple(credential: credential)
-                    upsertProfile(
-                        firstName: payload.firstName,
-                        lastName: payload.lastName,
-                        email: payload.email
-                    )
-                    await completeAuthentication(user)
-                } catch let error as StepINAuthenticationError {
-                    errorMessage = error.localizedDescription
-                } catch {
-                    errorMessage = StepINAuthenticationError.appleAuthorizationFailed.localizedDescription
-                }
-            }
-        case .failure(let error):
-            isLoading = false
-            logAppleAuthorizationFailure(error)
-            if let authorizationError = error as? ASAuthorizationError,
-               authorizationError.code == .canceled {
-                errorMessage = nil
-            } else {
-                errorMessage = StepINAuthenticationError.appleAuthorizationFailed.localizedDescription
-            }
-        }
-    }
-
-    private func logAppleAuthorizationFailure(_ error: any Error) {
-        #if DEBUG
-        let nsError = error as NSError
-        let authorizationCode = (error as? ASAuthorizationError)?.code.rawValue
-        print("StepIN Apple authorization failed: domain=\(nsError.domain), code=\(authorizationCode ?? nsError.code), description=\(nsError.localizedDescription)")
-        #endif
     }
 
     private func validateForm() throws {
@@ -526,23 +465,6 @@ private struct AuthPrimaryButton: View {
         .buttonStyle(StepINPressStyle())
         .disabled(!isEnabled || isLoading)
         .accessibilityLabel(Text(title))
-    }
-}
-
-private struct AuthDivider: View {
-    var body: some View {
-        HStack(spacing: StepINSpacing.sm) {
-            Rectangle()
-                .fill(StepINColor.divider)
-                .frame(height: 1)
-            Text("or")
-                .font(StepINFont.caption)
-                .foregroundStyle(StepINColor.textTertiary)
-            Rectangle()
-                .fill(StepINColor.divider)
-                .frame(height: 1)
-        }
-        .accessibilityHidden(true)
     }
 }
 

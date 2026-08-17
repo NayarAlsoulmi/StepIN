@@ -30,6 +30,15 @@ struct InterviewDetailsView: View {
     enum Segment: String, CaseIterable {
         case analysis = "Analysis"
         case chat = "Chat History"
+
+        var localizedTitle: String {
+            switch self {
+            case .analysis:
+                return String(localized: "Analysis")
+            case .chat:
+                return String(localized: "Chat History")
+            }
+        }
     }
 
     private var goals: [AssignedGoal] {
@@ -49,9 +58,9 @@ struct InterviewDetailsView: View {
     private var detailsSearchBar: some View {
         switch segment {
         case .analysis:
-            InterviewDetailsSearchBar(text: $analysisSearchText, prompt: "Search analysis")
+            InterviewDetailsSearchBar(text: $analysisSearchText, prompt: String(localized: "Search analysis"))
         case .chat:
-            InterviewDetailsSearchBar(text: $chatSearchText, prompt: "Search chat history")
+            InterviewDetailsSearchBar(text: $chatSearchText, prompt: String(localized: "Search chat history"))
         }
     }
 
@@ -63,18 +72,35 @@ struct InterviewDetailsView: View {
         query.isEmpty || text.localizedCaseInsensitiveContains(query)
     }
 
+    private func localizedSectionTitle(_ title: String) -> String {
+        switch title {
+        case "Performance":
+            return String(localized: "Performance")
+        case "Strengths":
+            return String(localized: "Strengths")
+        case "Areas to Improve":
+            return String(localized: "Areas to Improve")
+        case "Assigned Goals":
+            return String(localized: "Assigned Goals")
+        default:
+            return title
+        }
+    }
+
     private func filteredCategoryScores(_ analysis: InterviewAnalysis, query: String) -> [(category: PerformanceCategory, score: Int)] {
-        if matches("Performance", query: query) {
+        if matches("Performance", query: query) || matches(String(localized: "Performance"), query: query) {
             return analysis.categoryScores
         }
 
         return analysis.categoryScores.filter { item in
-            matches(item.category.rawValue, query: query) || matches(String(item.score), query: query)
+            matches(item.category.rawValue, query: query)
+                || matches(item.category.localizedTitle, query: query)
+                || matches(String(item.score), query: query)
         }
     }
 
     private func filteredItems(_ items: [String], sectionTitle: String, query: String) -> [String] {
-        if matches(sectionTitle, query: query) {
+        if matches(sectionTitle, query: query) || matches(localizedSectionTitle(sectionTitle), query: query) {
             return items
         }
 
@@ -82,7 +108,7 @@ struct InterviewDetailsView: View {
     }
 
     private func filteredGoals(query: String) -> [AssignedGoal] {
-        if matches("Assigned Goals", query: query) {
+        if matches("Assigned Goals", query: query) || matches(String(localized: "Assigned Goals"), query: query) {
             return goals
         }
 
@@ -119,7 +145,7 @@ struct InterviewDetailsView: View {
 
                 Picker("Section", selection: $segment) {
                     ForEach(Segment.allCases, id: \.self) { segment in
-                        Text(segment.rawValue).tag(segment)
+                        Text(segment.localizedTitle).tag(segment)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -348,7 +374,7 @@ struct PerformanceMetricRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: StepINSpacing.xxs) {
             HStack {
-                Text(category.rawValue)
+                Text(category.localizedTitle)
                     .font(StepINFont.body3)
                     .foregroundColor(StepINColor.textPrimary)
                 Spacer()
@@ -360,7 +386,7 @@ struct PerformanceMetricRow: View {
                 .tint(StepINColor.primary)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(category.rawValue): \(score) out of 100")
+        .accessibilityLabel("\(category.localizedTitle): \(score) out of 100")
     }
 }
 

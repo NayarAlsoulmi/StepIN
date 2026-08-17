@@ -18,6 +18,7 @@ final class InterviewSessionViewModel {
 
     enum Phase: Equatable {
         case idle
+        case ready
         case interviewerSpeaking
         case candidateListening
         case processingAnswer
@@ -42,7 +43,7 @@ final class InterviewSessionViewModel {
 
     var robotState: RobotState {
         switch phase {
-        case .idle: .idle
+        case .idle, .ready: .idle
         case .interviewerSpeaking: .speaking
         case .candidateListening: .listening
         case .processingAnswer: .thinking
@@ -52,14 +53,22 @@ final class InterviewSessionViewModel {
         }
     }
 
+    /// UI-facing state label. Wrapped in `String(localized:)` so the
+    /// String Catalog can translate labels returned from this computed property.
     var stateLabel: String {
         switch phase {
-        case .interviewerSpeaking: "Speaking"
-        case .candidateListening: "Listening"
-        case .processingAnswer: "Thinking"
-        case .paused: "Paused"
-        case .error: "Connection Issue"
-        default: ""
+        case .interviewerSpeaking:
+            String(localized: "Speaking", comment: "Interview state label shown while the AI interviewer is talking")
+        case .candidateListening:
+            String(localized: "Listening", comment: "Interview state label shown while the candidate is answering")
+        case .processingAnswer:
+            String(localized: "Thinking", comment: "Interview state label shown while the AI is processing the answer")
+        case .paused:
+            String(localized: "Paused", comment: "Interview state label shown while the interview is paused")
+        case .error:
+            String(localized: "Connection Issue", comment: "Interview state label shown when the realtime session errors")
+        default:
+            ""
         }
     }
 
@@ -80,9 +89,11 @@ final class InterviewSessionViewModel {
     /// Maps candidate turn UUID → index in `transcript` where that turn's entry lives.
     /// Allows late authoritative transcripts to update the existing entry in place.
     private var candidateTurnTranscriptIndex: [UUID: Int] = [:]
-    /// Voice result received from on-device analysis for the current turn.
-    /// Consumed (set to nil) when the first transcript entry for that turn is created.
-    private var pendingVoiceResult: VoicePerformanceResult? = nil
+    /// Voice results are owned by candidate turn UUID so async Core ML callbacks
+    /// cannot attach to the wrong answer when transcript timing varies.
+    private var voiceResultByTurnID: [UUID: VoicePerformanceResult] = [:]
+    private var didRequestPrepare = false
+    private var didRequestBeginInterview = false
 
     init(
         configuration: InterviewConfiguration,
@@ -105,8 +116,8 @@ final class InterviewSessionViewModel {
             onStateChange: { [weak self] state in self?.applyRealtimeState(state) },
             onInterviewerText: { [weak self] text in self?.currentQuestionText = text },
             onTranscriptEntry: { [weak self] entry in self?.appendRealtimeTranscript(entry) },
-            onVoiceAnalysisResult: { [weak self] emotion, confidence in
-                self?.updateVoiceAnalysis(emotion: emotion, confidence: confidence)
+            onVoiceAnalysisResult: { [weak self] turnID, emotion, confidence in
+                self?.updateVoiceAnalysis(turnID: turnID, emotion: emotion, confidence: confidence)
             },
             onCandidateTranscript: { [weak self] turnID, text in self?.handleCandidateTranscript(turnID: turnID, text: text) },
             onCompleted: { [weak self] isPartial, completedCount in
@@ -121,7 +132,14 @@ final class InterviewSessionViewModel {
     // MARK: Lifecycle
 
     func start() {
+        prepare()
+        beginInterview()
+    }
+
+    func prepare() {
+        guard !didRequestPrepare else { return }
         guard phase == .idle else { return }
+        didRequestPrepare = true
         sessionErrorMessage = nil
         latestVoiceClassification = nil
         latestVoiceConfidence = 0
@@ -129,7 +147,27 @@ final class InterviewSessionViewModel {
         if let realtimeSession {
             phaseTask = Task { [weak self] in
                 do {
-                    try await realtimeSession.start()
+                    try await realtimeSession.prepare()
+                } catch let error as RealtimeSessionError {
+                    self?.handleRealtimeError(error)
+                } catch {
+                    self?.handleRealtimeError(RealtimeSessionError(message: error.localizedDescription, type: "startup", code: nil, param: nil))
+                }
+            }
+            return
+        }
+
+        phase = .ready
+    }
+
+    func beginInterview() {
+        guard !didRequestBeginInterview else { return }
+        didRequestBeginInterview = true
+
+        if let realtimeSession {
+            phaseTask = Task { [weak self] in
+                do {
+                    try await realtimeSession.beginInterview()
                 } catch let error as RealtimeSessionError {
                     self?.handleRealtimeError(error)
                 } catch {
@@ -195,6 +233,8 @@ final class InterviewSessionViewModel {
         realtimeSession?.stop()
         guard let apiKey = OpenAIConfiguration.apiKey else { return }
         realtimeSession = makeRealtimeSession(apiKey: apiKey)
+        didRequestPrepare = false
+        didRequestBeginInterview = false
         phase = .idle
         start()
     }
@@ -290,6 +330,10 @@ final class InterviewSessionViewModel {
         case .preparing, .thinking:
             phase = .processingAnswer
             robertOneShot = nil
+        case .ready:
+            phase = .ready
+            showFinishAnswer = false
+            robertOneShot = nil
         case .introductionSpeaking:
             phase = .interviewerSpeaking
             showFinishAnswer = false
@@ -334,10 +378,37 @@ final class InterviewSessionViewModel {
         transcript.append(entry)
     }
 
-    private func updateVoiceAnalysis(emotion: String, confidence: Double) {
+    private func updateVoiceAnalysis(turnID: UUID, emotion: String, confidence: Double) {
         latestVoiceClassification = emotion
         latestVoiceConfidence = confidence
-        pendingVoiceResult = VoicePerformanceResult(label: emotion, confidence: confidence)
+        let incoming = VoicePerformanceResult(label: emotion, confidence: confidence)
+        if let existing = voiceResultByTurnID[turnID], existing.confidence > incoming.confidence {
+            logVoiceCoreML(
+                turnID: turnID,
+                classification: existing.label,
+                confidence: existing.confidence,
+                resultStored: true,
+                transcriptExists: candidateTurnTranscriptIndex[turnID] != nil,
+                resultAttached: candidateTurnTranscriptIndex[turnID] != nil
+            )
+            return
+        }
+
+        voiceResultByTurnID[turnID] = incoming
+        var resultAttached = false
+        if let existingIndex = candidateTurnTranscriptIndex[turnID] {
+            let existing = transcript[existingIndex]
+            transcript[existingIndex] = TranscriptEntry(speaker: .candidate, text: existing.text, voiceResult: incoming)
+            resultAttached = true
+        }
+        logVoiceCoreML(
+            turnID: turnID,
+            classification: emotion,
+            confidence: confidence,
+            resultStored: true,
+            transcriptExists: candidateTurnTranscriptIndex[turnID] != nil,
+            resultAttached: resultAttached
+        )
     }
 
     /// Creates or updates the candidate TranscriptEntry for a logical turn.
@@ -351,14 +422,54 @@ final class InterviewSessionViewModel {
         if let existingIndex = candidateTurnTranscriptIndex[turnID] {
             // Late transcription.completed updating text — preserve the voice result already attached.
             let existing = transcript[existingIndex]
-            transcript[existingIndex] = TranscriptEntry(speaker: .candidate, text: text, voiceResult: existing.voiceResult)
+            let voiceResult = voiceResultByTurnID[turnID] ?? existing.voiceResult
+            transcript[existingIndex] = TranscriptEntry(speaker: .candidate, text: text, voiceResult: voiceResult)
+            logVoiceCoreML(
+                turnID: turnID,
+                classification: voiceResult?.label,
+                confidence: voiceResult?.confidence,
+                resultStored: voiceResultByTurnID[turnID] != nil,
+                transcriptExists: true,
+                resultAttached: voiceResult != nil
+            )
         } else {
-            // First emit for this turn (at response.create) — consume the pending voice result.
-            let voiceResult = pendingVoiceResult
-            pendingVoiceResult = nil
+            let voiceResult = voiceResultByTurnID[turnID]
             candidateTurnTranscriptIndex[turnID] = transcript.count
             transcript.append(TranscriptEntry(speaker: .candidate, text: text, voiceResult: voiceResult))
+            logVoiceCoreML(
+                turnID: turnID,
+                classification: voiceResult?.label,
+                confidence: voiceResult?.confidence,
+                resultStored: voiceResultByTurnID[turnID] != nil,
+                transcriptExists: true,
+                resultAttached: voiceResult != nil
+            )
         }
+    }
+
+    private func logVoiceCoreML(
+        turnID: UUID,
+        classification: String?,
+        confidence: Double?,
+        resultStored: Bool,
+        transcriptExists: Bool,
+        resultAttached: Bool
+    ) {
+        #if DEBUG
+        let confidenceText = confidence.map { String(format: "%.2f", $0) } ?? "nil"
+        print("[VoiceCoreML] turnID=\(turnID.uuidString) analysisStarted=false analysisStopped=false classification=\(classification ?? "nil") confidence=\(confidenceText) resultStored=\(resultStored) transcriptExists=\(transcriptExists) resultAttached=\(resultAttached)")
+        #endif
+    }
+
+    private func logAnalysisVoiceEvidenceSummary(transcript: [TranscriptEntry]) {
+        #if DEBUG
+        let candidateEntries = transcript.filter { $0.speaker == .candidate }
+        let voiceEntries = candidateEntries.compactMap(\.voiceResult)
+        let voiceEvidence = voiceEntries
+            .map { "\($0.label):\(String(format: "%.2f", $0.confidence))" }
+            .joined(separator: ", ")
+        print("[StepIN.AnalysisVoiceEvidence] candidateTurns=\(candidateEntries.count) candidateTurnsWithVoiceEvidence=\(voiceEntries.count) voiceEvidence=[\(voiceEvidence)]")
+        #endif
     }
 
     private func finishRealtime(isPartial: Bool, completedCount: Int) {
@@ -374,6 +485,7 @@ final class InterviewSessionViewModel {
         // Phase transitions are already applied above so the UI updates immediately.
         let capturedTranscript = transcript
         let capturedSession = realtimeSession
+        logAnalysisVoiceEvidenceSummary(transcript: capturedTranscript)
         Task { @MainActor [weak self] in
             guard let self else { return }
             let metrics = await capturedSession?.collectDeliveryMetrics(transcript: capturedTranscript) ?? .empty
@@ -394,6 +506,7 @@ final class InterviewSessionViewModel {
         // Partial when ended before all selected questions were completed.
         let completedCount = realtimeCompletedQuestionCount ?? engine.askedQuestionCount
         let isPartial = early && completedCount < configuration.questionCount.rawValue
+        logAnalysisVoiceEvidenceSummary(transcript: transcript)
         onFinished(transcript, isPartial, completedCount, .empty)
     }
 }

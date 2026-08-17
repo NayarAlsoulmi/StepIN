@@ -113,10 +113,15 @@ final class VoiceStressAnalysisService: NSObject, ObservableObject {
     private func publishFinalResultIfAvailable() {
         guard let result = finalResult() else { return }
 
-        DispatchQueue.main.async {
+        let deliver = {
             self.detectedEmotion = result.emotion
             self.confidence = result.confidence
             self.onResult?(result.emotion, result.confidence)
+        }
+        if Thread.isMainThread {
+            deliver()
+        } else {
+            DispatchQueue.main.async(execute: deliver)
         }
 
         print("🎤 Final Voice Analysis: \(result.emotion) - \(Int(result.confidence * 100))%")

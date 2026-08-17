@@ -34,8 +34,10 @@ struct HomeView: View {
     @State private var showProfile = false
     @State private var tutorialManager = TutorialManager(steps: HomeTutorial.steps)
 
-    // Entry — 0 → 1 drives opacity, scale, and vertical offset together
-    @State private var robertAppeared: Double = 0
+    // Entry — 0 → 1 drives opacity, scale, and vertical offset together.
+    // Start at 1 if Robert has already been introduced this session so that
+    // re-authentication doesn't replay the slide-in bounce.
+    @State private var robertAppeared: Double = HomeView.hasPlayedRobertGreeting ? 1.0 : 0
 
     // Idle overlays — smoothly reset when a one-shot begins
     @State private var breatheY: Double = 0
@@ -172,18 +174,20 @@ struct HomeView: View {
             return
         }
 
+        // Not the first appearance this session — Robert is already at 1.0,
+        // so skip the entry animation and go straight to idle.
+        guard !HomeView.hasPlayedRobertGreeting else {
+            startIdleAnimations()
+            return
+        }
+
+        HomeView.hasPlayedRobertGreeting = true
         Task {
             try? await Task.sleep(for: .milliseconds(80))
             withAnimation(.spring(response: 0.52, dampingFraction: 0.78)) {
                 robertAppeared = 1.0
             }
         }
-
-        guard !HomeView.hasPlayedRobertGreeting else {
-            startIdleAnimations()
-            return
-        }
-        HomeView.hasPlayedRobertGreeting = true
         Task {
             try? await Task.sleep(for: .milliseconds(420))
             heroOneShot = .wakeUp

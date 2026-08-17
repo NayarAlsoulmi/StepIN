@@ -14,9 +14,10 @@ struct InterviewSessionView: View {
 
     init(
         configuration: InterviewConfiguration,
+        viewModel: InterviewSessionViewModel? = nil,
         onFinished: @escaping (_ transcript: [TranscriptEntry], _ isPartial: Bool, _ completedCount: Int, _ metrics: VoiceDeliveryMetrics) -> Void
     ) {
-        _viewModel = State(initialValue: InterviewSessionViewModel(
+        _viewModel = State(initialValue: viewModel ?? InterviewSessionViewModel(
             configuration: configuration,
             onFinished: onFinished
         ))
@@ -76,7 +77,12 @@ struct InterviewSessionView: View {
             }
         }
         .animation(StepINMotion.fade, value: viewModel.phase)
-        .onAppear { viewModel.start() }
+        .onAppear {
+            #if DEBUG
+            print("[InterviewStartup] T7 InterviewSessionView shown")
+            #endif
+            viewModel.beginInterview()
+        }
         .alert(
             "End this interview?",
             isPresented: $confirmEnd
