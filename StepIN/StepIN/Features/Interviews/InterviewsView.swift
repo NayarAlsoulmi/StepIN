@@ -9,6 +9,29 @@
 import SwiftUI
 import SwiftData
 
+private enum InterviewHistoryFilter: Hashable, CaseIterable, Identifiable {
+    case completed
+    case partial
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .completed: "Completed"
+        case .partial: "Partial"
+        }
+    }
+
+    func matches(_ interview: InterviewRecord) -> Bool {
+        switch self {
+        case .completed:
+            interview.status == .completed && !interview.isPartial
+        case .partial:
+            interview.isPartial
+        }
+    }
+}
+
 struct InterviewsView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.modelContext) private var context
@@ -21,22 +44,27 @@ struct InterviewsView: View {
     @State private var interviewPendingDeletion: InterviewRecord?
     @State private var selectedInterviewID: UUID?
     @State private var searchText = ""
+    @State private var selectedFilter: InterviewHistoryFilter = .completed
     @State private var tutorialManager = TutorialManager(
         steps: InterviewsTutorial.steps(hasCompletedInterviews: false),
         completionKey: TutorialManager.interviewsTutorialCompletedKey
     )
 
-    private var completed: [InterviewRecord] {
-        interviews.filter { $0.status == .completed }
+    private var filteredByStatus: [InterviewRecord] {
+        interviews.filter { selectedFilter.matches($0) }
     }
 
     private var filtered: [InterviewRecord] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return completed }
+        guard !query.isEmpty else { return filteredByStatus }
 
-        return completed.filter { interview in
+        return filteredByStatus.filter { interview in
             cardSearchText(for: interview).localizedCaseInsensitiveContains(query)
         }
+    }
+
+    private var filterItems: [InterviewHistoryFilter] {
+        InterviewHistoryFilter.allCases
     }
 
     private func cardSearchText(for interview: InterviewRecord) -> String {
@@ -44,7 +72,8 @@ struct InterviewsView: View {
             interview.jobTitle,
             interview.company,
             interview.startedAt.formatted(date: .abbreviated, time: .omitted),
-            interview.overallScore.map(String.init)
+            interview.overallScore.map(String.init),
+            interview.isPartial ? "Partial" : interview.status.displayName
         ]
         .compactMap { $0 }
         .joined(separator: " ")
@@ -65,16 +94,22 @@ struct InterviewsView: View {
                     .padding(.horizontal, StepINSpacing.screenH)
                     .padding(.top, StepINSpacing.xxl)
 
-                if !completed.isEmpty {
+                if !interviews.isEmpty {
                     InterviewSearchBar(text: $searchText)
                         .padding(.horizontal, StepINSpacing.screenH)
                         .tutorialTarget(.interviewsSearch)
+
+                    InterviewStatusFilterBar(
+                        filters: filterItems,
+                        selection: $selectedFilter
+                    )
+                    .padding(.horizontal, StepINSpacing.screenH)
                 }
 
-                if completed.isEmpty {
+                if interviews.isEmpty {
                     StepINEmptyState(
                         title: "No interviews yet",
-                        message: "Your completed interviews and feedback will appear here.",
+                        message: "Your interviews and feedback will appear here.",
                         actionTitle: nil
                     )
                     .frame(maxHeight: .infinity)
@@ -112,7 +147,15 @@ struct InterviewsView: View {
                     .contentMargins(.bottom, StepINSpacing.giant, for: .scrollContent)
                     .overlay {
                         if filtered.isEmpty {
-                            ContentUnavailableView.search(text: searchText)
+                            if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                ContentUnavailableView(
+                                    "No \(selectedFilter.title.lowercased()) interviews",
+                                    systemImage: "tray",
+                                    description: Text("Try another interview status filter.")
+                                )
+                            } else {
+                                ContentUnavailableView.search(text: searchText)
+                            }
                         }
                     }
                     .tutorialTarget(.interviewsList)
@@ -121,7 +164,7 @@ struct InterviewsView: View {
             .background(StepINScreenBackground())
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(item: $selectedInterviewID) { id in
-                if let interview = completed.first(where: { $0.id == id }) {
+                if let interview = interviews.first(where: { $0.id == id }) {
                     InterviewDetailsView(interview: interview)
                 }
             }
@@ -147,7 +190,7 @@ struct InterviewsView: View {
     }
 
     private func startTutorialIfNeeded() {
-        tutorialManager.updateSteps(InterviewsTutorial.steps(hasCompletedInterviews: !completed.isEmpty))
+        tutorialManager.updateSteps(InterviewsTutorial.steps(hasCompletedInterviews: !interviews.isEmpty))
         tutorialManager.onFinish = {
             appState.selectedTab = .goals
         }
@@ -181,6 +224,35 @@ struct InterviewsView: View {
             CVDocumentService().deleteCV(atLocalPath: cvPath)
         }
         context.delete(interview)
+    }
+}
+
+private struct InterviewStatusFilterBar: View {
+    let filters: [InterviewHistoryFilter]
+    @Binding var selection: InterviewHistoryFilter
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: StepINSpacing.xs) {
+                ForEach(filters) { filter in
+                    Button {
+                        withAnimation(StepINMotion.springSnappy) {
+                            selection = filter
+                        }
+                    } label: {
+                        Text(filter.title)
+                            .font(StepINFont.body3.weight(.semibold))
+                            .foregroundColor(selection == filter ? StepINColor.onPrimary : StepINColor.textSecondary)
+                            .padding(.horizontal, StepINSpacing.sm)
+                            .frame(height: 36)
+                            .background(selection == filter ? StepINColor.primary : Color.white.opacity(0.72))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(filter.title)
+                }
+            }
+        }
     }
 }
 
@@ -227,6 +299,14 @@ struct InterviewHistoryCard: View {
         interview.startedAt.formatted(date: .abbreviated, time: .omitted)
     }
 
+    private var statusBadge: (title: String, color: Color)? {
+        if interview.isPartial {
+            return ("Partial", StepINColor.warning)
+        }
+        guard interview.status != .completed else { return nil }
+        return (interview.status.displayName, interview.status.badgeColor)
+    }
+
     var body: some View {
         StepINCard {
             HStack(spacing: StepINSpacing.md) {
@@ -235,13 +315,13 @@ struct InterviewHistoryCard: View {
                         Text(interview.jobTitle)
                             .font(StepINFont.h4)
                             .foregroundColor(StepINColor.textPrimary)
-                        if interview.isPartial {
-                            Text("Partial")
+                        if let statusBadge {
+                            Text(statusBadge.title)
                                 .font(StepINFont.body5)
-                                .foregroundColor(StepINColor.warning)
+                                .foregroundColor(statusBadge.color)
                                 .padding(.horizontal, StepINSpacing.xs)
                                 .padding(.vertical, 2)
-                                .background(StepINColor.warning.opacity(0.15))
+                                .background(statusBadge.color.opacity(0.15))
                                 .clipShape(Capsule())
                         }
                     }
@@ -270,6 +350,33 @@ struct InterviewHistoryCard: View {
 
 /// Compact circular score indicator. The ring fills from zero once, the
 /// first time the badge appears.
+private extension InterviewStatus {
+    var displayName: String {
+        switch self {
+        case .draft: "Draft"
+        case .preparing: "Preparing"
+        case .inProgress: "In Progress"
+        case .paused: "Paused"
+        case .analyzing: "Analyzing"
+        case .completed: "Completed"
+        case .failed: "Failed"
+        }
+    }
+
+    var badgeColor: Color {
+        switch self {
+        case .completed:
+            StepINColor.success
+        case .failed:
+            StepINColor.error
+        case .analyzing, .preparing, .inProgress:
+            StepINColor.info
+        case .paused, .draft:
+            StepINColor.textTertiary
+        }
+    }
+}
+
 struct ScoreBadge: View {
     let score: Int
     var size: CGFloat = 54
