@@ -14,9 +14,10 @@ struct InterviewSessionView: View {
 
     init(
         configuration: InterviewConfiguration,
-        onFinished: @escaping (_ transcript: [TranscriptEntry], _ isPartial: Bool, _ completedCount: Int) -> Void
+        viewModel: InterviewSessionViewModel? = nil,
+        onFinished: @escaping (_ transcript: [TranscriptEntry], _ isPartial: Bool, _ completedCount: Int, _ metrics: VoiceDeliveryMetrics) -> Void
     ) {
-        _viewModel = State(initialValue: InterviewSessionViewModel(
+        _viewModel = State(initialValue: viewModel ?? InterviewSessionViewModel(
             configuration: configuration,
             onFinished: onFinished
         ))
@@ -24,7 +25,7 @@ struct InterviewSessionView: View {
 
     var body: some View {
         ZStack {
-            StepINColor.background.ignoresSafeArea()
+            StepINScreenBackground()
 
             VStack(spacing: 0) {
                 topBar
@@ -33,7 +34,12 @@ struct InterviewSessionView: View {
 
                 // Center: robot + question + state label.
                 VStack(spacing: StepINSpacing.xl) {
-                    RobotView(state: viewModel.robotState, presentation: .interview)
+                    RobotView(
+                        state: viewModel.robotState,
+                        robertState: viewModel.robertOneShot,
+                        presentation: .interview,
+                        onOneShotComplete: viewModel.robertOneShotCompleted
+                    )
 
                     Text(viewModel.currentQuestionText)
                         .font(StepINFont.h2)
@@ -64,19 +70,29 @@ struct InterviewSessionView: View {
                 pauseOverlay
                     .transition(.opacity)
             }
+
+            if viewModel.phase == .error {
+                realtimeErrorOverlay
+                    .transition(.opacity)
+            }
         }
         .animation(StepINMotion.fade, value: viewModel.phase)
-        .onAppear { viewModel.start() }
-        .confirmationDialog(
+        .onAppear {
+            #if DEBUG
+            print("[InterviewStartup] T7 InterviewSessionView shown")
+            #endif
+            viewModel.beginInterview()
+        }
+        .alert(
             "End this interview?",
-            isPresented: $confirmEnd,
-            titleVisibility: .visible
+            isPresented: $confirmEnd
         ) {
             Button("End Interview", role: .destructive) { viewModel.endInterview() }
             Button("Continue Interview", role: .cancel) {}
         } message: {
             Text("You'll still receive feedback on the answers you've completed.")
         }
+        .tint(StepINColor.textPrimary.opacity(0.72))
     }
 
     // MARK: Top bar
@@ -87,10 +103,10 @@ struct InterviewSessionView: View {
                 viewModel.pause()
             } label: {
                 Image(systemName: "pause.fill")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
                     .foregroundColor(StepINColor.textSecondary)
                     .frame(width: 44, height: 44)
-                    .background(StepINColor.surface)
+                    .background(.ultraThinMaterial, in: Circle())
                     .clipShape(Circle())
             }
             .accessibilityLabel("Pause interview")
@@ -105,7 +121,7 @@ struct InterviewSessionView: View {
                     .foregroundColor(StepINColor.error)
                     .frame(height: 44)
                     .padding(.horizontal, StepINSpacing.md)
-                    .background(StepINColor.surface)
+                    .background(.ultraThinMaterial, in: Capsule())
                     .clipShape(Capsule())
             }
             .accessibilityLabel("End interview")
@@ -155,7 +171,7 @@ struct InterviewSessionView: View {
 
     private var pauseOverlay: some View {
         ZStack {
-            StepINColor.background.opacity(0.97).ignoresSafeArea()
+            StepINScreenBackground()
 
             VStack(spacing: StepINSpacing.xl) {
                 RobotView(state: .paused, presentation: .compact)
@@ -175,6 +191,35 @@ struct InterviewSessionView: View {
             }
         }
     }
+
+    private var realtimeErrorOverlay: some View {
+        ZStack {
+            StepINScreenBackground()
+
+            VStack(spacing: StepINSpacing.lg) {
+                RobotView(state: .idle, presentation: .compact)
+                Text("Interview Connection Issue")
+                    .font(StepINFont.h2)
+                    .foregroundColor(StepINColor.textPrimary)
+                    .multilineTextAlignment(.center)
+
+                if let message = viewModel.sessionErrorMessage {
+                    Text(message)
+                        .font(StepINFont.body3)
+                        .foregroundColor(StepINColor.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: 520)
+                }
+
+                StepINPrimaryButton(title: "Try Again") {
+                    viewModel.retryAfterRealtimeError()
+                }
+                .padding(.horizontal, StepINSpacing.xxl)
+            }
+            .padding(.horizontal, StepINSpacing.screenH)
+        }
+    }
 }
 
 #Preview {
@@ -189,6 +234,6 @@ struct InterviewSessionView: View {
             questionCount: .five,
             candidateFirstName: "Nayar"
         ),
-        onFinished: { _, _, _ in }
+        onFinished: { _, _, _, _ in }
     )
 }

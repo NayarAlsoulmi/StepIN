@@ -22,6 +22,8 @@ struct OnboardingView: View {
     @State private var selection = 0
     // Page 0 plays wakeUp once then settles to idle.
     @State private var page0OneShot: RobertAnimationState? = .wakeUp
+    // Page 2 plays thumbsUp when the user arrives on that page, then returns to idle.
+    @State private var page2OneShot: RobertAnimationState? = nil
 
     private let pages: [OnboardingPage] = [
         OnboardingPage(
@@ -55,8 +57,13 @@ struct OnboardingView: View {
                 onOneShotComplete: { page0OneShot = nil }
             )
         case 2:
-            // thumbsUp once, hold on last frame.
-            RobotView(state: page.robotState, robertState: .thumbsUp, presentation: .homeHero)
+            // thumbsUp once when the page becomes active, then returns to idle.
+            RobotView(
+                state: page.robotState,
+                robertState: page2OneShot,
+                presentation: .homeHero,
+                onOneShotComplete: { page2OneShot = nil }
+            )
         default:
             RobotView(state: page.robotState, presentation: .homeHero)
         }
@@ -89,6 +96,9 @@ struct OnboardingView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .always))
             .indexViewStyle(.page(backgroundDisplayMode: .always))
+            .onChange(of: selection) { _, page in
+                if page == 2 { page2OneShot = .thumbsUp }
+            }
 
             StepINPrimaryButton(title: isLastPage ? "Get Started" : "Next") {
                 if isLastPage {
@@ -100,7 +110,7 @@ struct OnboardingView: View {
             .padding(.horizontal, StepINSpacing.screenH)
             .padding(.bottom, StepINSpacing.md)
         }
-        .background(StepINColor.background.ignoresSafeArea())
+        .background(StepINScreenBackground())
     }
 }
 

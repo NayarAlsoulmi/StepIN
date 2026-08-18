@@ -21,7 +21,7 @@ struct AnalyzingView: View {
 
     var body: some View {
         ZStack {
-            StepINColor.background.ignoresSafeArea()
+            StepINScreenBackground()
 
             VStack(spacing: StepINSpacing.xxl) {
                 Spacer()

@@ -52,4 +52,19 @@ enum PerformanceCategory: String, CaseIterable, Identifiable, Sendable {
     case interviewSkills = "Interview Skills"
 
     var id: String { rawValue }
+
+    var localizedTitle: String {
+        switch self {
+        case .answerQuality:
+            return String(localized: "Answer Quality")
+        case .clarity:
+            return String(localized: "Clarity")
+        case .confidence:
+            return String(localized: "Confidence")
+        case .communication:
+            return String(localized: "Communication")
+        case .interviewSkills:
+            return String(localized: "Interview Skills")
+        }
+    }
 }

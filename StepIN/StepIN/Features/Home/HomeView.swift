@@ -10,29 +10,34 @@
 
 import SwiftUI
 import SwiftData
-
-private let isXcodePreview = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+import UIKit
 
 struct HomeView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(StepINNavigationBridge.startInterviewRequestIDKey) private var startInterviewRequestID = ""
+    @AppStorage(TutorialManager.homeTutorialCompletedKey) private var hasCompletedHomeTutorial = false
+    @AppStorage(TutorialManager.homeTutorialResumeAtLastStepKey) private var shouldResumeHomeTutorialAtLastStep = false
     @Query private var profiles: [UserProfile]
     @Query(sort: \InterviewRecord.startedAt, order: .reverse)
     private var interviews: [InterviewRecord]
     @Query(sort: \AssignedGoal.createdAt, order: .reverse)
     private var allGoals: [AssignedGoal]
-    
+
     @State private var showInterviewFlow = false
     @State private var isStartingInterview = false
     @State private var heroRobotState: RobotState = .idle
     @State private var heroOneShot: RobertAnimationState? = nil
     @State private var startFeedbackTrigger = false
-<<<<<<< Updated upstream
     @State private var robertTapTrigger = false
     @State private var pendingHeroWaves = 0
+    @State private var showProfile = false
+    @State private var tutorialManager = TutorialManager(steps: HomeTutorial.steps)
 
-    // Entry — 0 → 1 drives opacity, scale, and vertical offset together
-    @State private var robertAppeared: Double = isXcodePreview ? 1 : 0
+    // Entry — 0 → 1 drives opacity, scale, and vertical offset together.
+    // Start at 1 if Robert has already been introduced this session so that
+    // re-authentication doesn't replay the slide-in bounce.
+    @State private var robertAppeared: Double = HomeView.hasPlayedRobertGreeting ? 1.0 : 0
 
     // Idle overlays — smoothly reset when a one-shot begins
     @State private var breatheY: Double = 0
@@ -42,6 +47,10 @@ struct HomeView: View {
     nonisolated(unsafe) private static var hasPlayedRobertGreeting = false
 
     private var firstName: String { profiles.first?.firstName ?? "there" }
+    private var profileImage: UIImage? {
+        ProfileImageService.image(atLocalPath: profiles.first?.profileImageLocalPath)
+    }
+
     private var userInitials: String {
         let f = profiles.first?.firstName.prefix(1) ?? "?"
         let l = profiles.first?.lastName?.prefix(1) ?? ""
@@ -59,65 +68,78 @@ struct HomeView: View {
 
     // MARK: Body
 
-=======
-    
-    private var firstName: String { profiles.first?.firstName ?? "there" }
-    
-    private var completedInterviews: [InterviewRecord] {
-        interviews.filter { $0.status == .completed }
-    }
-    private var recentInterviews: [InterviewRecord] {
-        Array(completedInterviews.prefix(2))
-    }
-    
-    private var activeGoals: [AssignedGoal] {
-        allGoals.filter { $0.status == .toDo }
-    }
-    private var recentGoals: [AssignedGoal] {
-        Array(activeGoals.prefix(3))
-        
-    }
-    
->>>>>>> Stashed changes
     var body: some View {
-        
-        NavigationStack {
-<<<<<<< Updated upstream
-            ScrollView {
-                VStack(alignment: .leading, spacing: StepINSpacing.section) {
+        TutorialHost(manager: tutorialManager, advancesToAnotherPage: true) {
+            NavigationStack {
+                VStack(spacing: 0) {
                     headerView
-                    heroCard
-                    recentInterviewsSection
-                    recentGoalsSection
+                        .padding(.horizontal, StepINSpacing.screenH)
+                        .padding(.bottom, StepINSpacing.section)
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: StepINSpacing.section) {
+                            heroCard
+                            recentInterviewsSection
+                            recentGoalsSection
+                        }
+                        .padding(.horizontal, StepINSpacing.screenH)
+                        .padding(.bottom, StepINSpacing.xxl)
+                    }
                 }
-                .padding(.horizontal, StepINSpacing.screenH)
-                .padding(.bottom, StepINSpacing.xxl)
-            }
-            .background(StepINColor.background)
-            .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: UUID.self) { id in
-                if let interview = interviews.first(where: { $0.id == id }) {
-                    InterviewDetailsView(interview: interview)
+                .background(StepINScreenBackground())
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(for: UUID.self) { id in
+                    if let interview = interviews.first(where: { $0.id == id }) {
+                        InterviewDetailsView(interview: interview)
+                    }
                 }
-            }
-            .sensoryFeedback(.impact(weight: .light), trigger: startFeedbackTrigger)
-            .sensoryFeedback(.impact(weight: .light), trigger: robertTapTrigger)
-            .fullScreenCover(isPresented: $showInterviewFlow) {
-                InterviewFlowView {
-                    showInterviewFlow = false
-                    isStartingInterview = false
-                    heroRobotState = .idle
+                .sensoryFeedback(.impact(weight: .light), trigger: startFeedbackTrigger)
+                .sensoryFeedback(.impact(weight: .light), trigger: robertTapTrigger)
+                .fullScreenCover(isPresented: $showProfile) {
+                    NavigationStack {
+                        ProfileView(embedsInNavigationStack: false)
+                            .toolbar(.visible, for: .navigationBar)
+                            .toolbar {
+                                ToolbarItem(placement: .cancellationAction) {
+                                    Button("Close") {
+                                        showProfile = false
+                                    }
+                                    .foregroundStyle(StepINColor.primary)
+                                }
+                            }
+                    }
+                }
+                .fullScreenCover(isPresented: $showInterviewFlow) {
+                    InterviewFlowView {
+                        showInterviewFlow = false
+                        isStartingInterview = false
+                        heroRobotState = .idle
+                    }
                 }
             }
         }
-        .onAppear { guard !isXcodePreview else { return }; triggerHomeEntry() }
+        .onAppear {
+            triggerHomeEntry()
+            routePendingStartInterviewIfNeeded()
+            startHomeTutorialIfNeeded()
+        }
+        .onChange(of: startInterviewRequestID) { _, _ in
+            routePendingStartInterviewIfNeeded()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: StepINNavigationBridge.startInterviewNotification)) { _ in
+            routePendingStartInterviewIfNeeded()
+        }
     }
 
     // MARK: Premium header
 
     private var headerView: some View {
-        HomeGreetingHeader(firstName: firstName, initials: userInitials)
-        .padding(.top, StepINSpacing.md)
+        HomeGreetingHeader(
+            firstName: firstName,
+            initials: userInitials,
+            profileImage: profileImage,
+            profileAction: { showProfile = true }
+        )
+            .padding(.top, StepINSpacing.md)
     }
 
     // MARK: Hero card — horizontal split
@@ -152,37 +174,33 @@ struct HomeView: View {
             return
         }
 
-        // Robert springs in from slightly below, faded and scaled down
+        // Not the first appearance this session — Robert is already at 1.0,
+        // so skip the entry animation and go straight to idle.
+        guard !HomeView.hasPlayedRobertGreeting else {
+            startIdleAnimations()
+            return
+        }
+
+        HomeView.hasPlayedRobertGreeting = true
         Task {
             try? await Task.sleep(for: .milliseconds(80))
             withAnimation(.spring(response: 0.52, dampingFraction: 0.78)) {
                 robertAppeared = 1.0
             }
         }
-
-        guard !HomeView.hasPlayedRobertGreeting else {
-            startIdleAnimations()
-            return
-        }
-        HomeView.hasPlayedRobertGreeting = true
         Task {
-            // Let entry spring settle before greeting begins
             try? await Task.sleep(for: .milliseconds(420))
             heroOneShot = .wakeUp
-            // wakeUp -> wave -> idle. The session flag prevents replay on tab switches.
         }
     }
 
     // MARK: Idle animations
 
-    /// Breathing and head-sway via .repeatForever — set once, run forever.
-    /// No async task loops; avoids re-entering the SwiftUI layout engine.
     private func startIdleAnimations() {
-        guard !reduceMotion, !isXcodePreview else { return }
+        guard !reduceMotion else { return }
         withAnimation(.easeInOut(duration: 2.1).repeatForever(autoreverses: true)) {
             breatheY = -2
         }
-        // Stagger sway start to keep it out of phase with breathing
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
             guard isHeroIdle else { return }
             withAnimation(.easeInOut(duration: 4.3).repeatForever(autoreverses: true)) {
@@ -193,8 +211,8 @@ struct HomeView: View {
 
     private func stopIdleAnimations() {
         withAnimation(.easeOut(duration: 0.25)) {
-            breatheY   = 0
-            swayAngle  = 0
+            breatheY  = 0
+            swayAngle = 0
         }
     }
 
@@ -227,13 +245,53 @@ struct HomeView: View {
         }
     }
 
+    // MARK: Goal toggle
+
+    private func toggle(_ goal: AssignedGoal) {
+        withAnimation(StepINMotion.springStandard) {
+            if goal.status == .completed {
+                goal.status = .toDo
+                goal.completedAt = nil
+            } else {
+                goal.status = .completed
+                goal.completedAt = .now
+            }
+        }
+    }
+
     // MARK: Start interview
+
+    private func routePendingStartInterviewIfNeeded() {
+        guard !startInterviewRequestID.isEmpty else { return }
+        StepINNavigationBridge.clearStartInterviewRequest()
+        startInterview()
+    }
 
     private func startInterview() {
         guard !isStartingInterview else { return }
+        if tutorialManager.isPresented {
+            tutorialManager.skip()
+        }
         isStartingInterview = true
         startFeedbackTrigger.toggle()
         showInterviewFlow = true
+    }
+
+    private func startHomeTutorialIfNeeded() {
+        tutorialManager.onFinish = {
+            appState.selectedTab = .interviews
+        }
+
+        let delay: TimeInterval = reduceMotion ? 0.15 : 0.7
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            guard appState.selectedTab == .home, !showInterviewFlow, !showProfile else { return }
+            if shouldResumeHomeTutorialAtLastStep {
+                shouldResumeHomeTutorialAtLastStep = false
+                tutorialManager.startAtLastStep()
+            } else {
+                tutorialManager.startIfNeeded(hasCompletedTutorial: hasCompletedHomeTutorial)
+            }
+        }
     }
 
     // MARK: Recent interviews
@@ -260,112 +318,21 @@ struct HomeView: View {
                 ForEach(recentInterviews) { interview in
                     NavigationLink(value: interview.id) {
                         InterviewHistoryCard(interview: interview)
-=======
-            ScreenContainer{
-                
-                ScrollView {
-                    
-                    VStack(alignment: .leading, spacing:
-                            
-                            StepINSpacing.section) {
-                        heroCard
-                        recentInterviewsSection
-                        recentGoalsSection
                     }
-                            .padding(.horizontal, StepINSpacing.screenH)
-                            .padding(.bottom, StepINSpacing.xxl)
-                }
-                .navigationTitle("Welcome back, \(firstName)")
-                .padding(.top,120)
-                .padding(.bottom, 40)
-                .navigationDestination(for: UUID.self) { id in
-                    if let interview = interviews.first(where: { $0.id == id }) {
-                        InterviewDetailsView(interview: interview)
-                    }
-                }
-                .sensoryFeedback(.impact(weight: .light), trigger: startFeedbackTrigger)
-                .fullScreenCover(isPresented: $showInterviewFlow) {
-                    InterviewFlowView {
-                        showInterviewFlow = false
-                        heroRobotState = .idle
->>>>>>> Stashed changes
-                    }
+                    .buttonStyle(StepINPressStyle())
                 }
             }
         }
-            .onAppear {
-                guard !hasAppeared else { return }
-                hasAppeared = true
-                heroOneShot = .wakeUp
-            }
-        }
-    
-        
-        // MARK: Hero
-        
-        private var heroCard: some View {
-            VStack(spacing: StepINSpacing.md) {
-                RobotView(
-                    state: heroRobotState,
-                    robertState: heroOneShot,
-                    presentation: .homeHero,
-                    onOneShotComplete: { heroOneShot = nil }
-                )
-                
-                VStack(spacing: StepINSpacing.xs) {
-                    Text("Ready for your next interview?")
-                        .font(StepINFont.h2)
-                        .foregroundColor(StepINColor.onPrimary)
-                        .multilineTextAlignment(.center)
-                    Text("Practice with an AI interviewer tailored to your role.")
-                        .font(StepINFont.bodyRegular)
-                        .foregroundColor(StepINColor.onPrimary.opacity(0.9))
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                
-                Button(action: startInterview) {
-                    Text("Start Interview")
-                        .font(StepINFont.button)
-                        .foregroundColor(StepINColor.primary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 54)
-                        .background(StepINColor.onPrimary)
-                        .clipShape(RoundedRectangle(cornerRadius: StepINRadius.medium, style: .continuous))
-                }
-                .buttonStyle(StepINPressStyle())
-                .padding(.top, StepINSpacing.xs)
-                .accessibilityLabel("Start Interview")
-            }
-            .padding(StepINSpacing.xl)
-            .frame(maxWidth: .infinity)
-            .background(StepINGradient.hero)
-            .clipShape(RoundedRectangle(cornerRadius: StepINRadius.hero, style: .continuous))
-            .stepINShadow(.card)
-            .padding(.top, StepINSpacing.xs)
-        }
-        
-        /// Haptic + wave animation, then open the interview flow.
-        private func startInterview() {
-            // Block re-entry while a one-shot is in progress.
-            guard heroOneShot == nil || heroOneShot == .wakeUp else { return }
-            startFeedbackTrigger.toggle()
-            heroRobotState = .thinking
-            heroOneShot = .wave
-            // Wave is 12 frames @ 15fps = 0.8 s. Open the flow once it finishes.
-            Task {
-                try? await Task.sleep(for: .milliseconds(900))
-                showInterviewFlow = true
-            }
-        }
-        
-        // MARK: Recent interviews
-        
-        @ViewBuilder
-        private var recentInterviewsSection: some View {
+        .tutorialTarget(.recentInterviews)
+    }
+
+    // MARK: Recent goals
+
+    @ViewBuilder
+    private var recentGoalsSection: some View {
+        if !recentGoals.isEmpty {
             VStack(alignment: .leading, spacing: StepINSpacing.md) {
                 StepINSectionHeader(
-<<<<<<< Updated upstream
                     title: "Recent Goals",
                     actionTitle: activeGoals.count > 3 ? "See All" : nil,
                     action: activeGoals.count > 3
@@ -377,57 +344,11 @@ struct HomeView: View {
                             Array(recentGoals.enumerated()),
                             id: \.element.id
                         ) { index, goal in
-                            HomeGoalRow(goal: goal)
+                            HomeGoalRow(goal: goal, onToggle: { toggle(goal) })
                             if index < recentGoals.count - 1 {
                                 Divider()
                                     .background(StepINColor.divider)
                                     .padding(.vertical, StepINSpacing.sm)
-=======
-                    title: "Recent Interviews",
-                    actionTitle: completedInterviews.count > 2 ? "See All" : nil,
-                    action: completedInterviews.count > 2 ? { appState.selectedTab = .interviews } : nil
-                )
-                if recentInterviews.isEmpty {
-                    StepINCard {
-                        StepINEmptyState(
-                            title: "No interviews yet",
-                            message: "Start your first interview and receive personalized feedback.",
-                            actionTitle: "Start Interview",
-                            action: startInterview
-                        )
-                    }
-                } else {
-                    ForEach(recentInterviews) { interview in
-                        NavigationLink(value: interview.id) {
-                            InterviewHistoryCard(interview: interview)
-                        }
-                        .buttonStyle(StepINPressStyle())
-                    }
-                }
-            }
-        }
-        
-        // MARK: Recent goals
-        
-        @ViewBuilder
-        private var recentGoalsSection: some View {
-            if !recentGoals.isEmpty {
-                VStack(alignment: .leading, spacing: StepINSpacing.md) {
-                    StepINSectionHeader(
-                        title: "Recent Goals",
-                        actionTitle: activeGoals.count > 3 ? "See All" : nil,
-                        action: activeGoals.count > 3 ? { appState.selectedTab = .goals } : nil
-                    )
-                    StepINCard {
-                        VStack(spacing: 0) {
-                            ForEach(Array(recentGoals.enumerated()), id: \.element.id) { index, goal in
-                                HomeGoalRow(goal: goal)
-                                if index < recentGoals.count - 1 {
-                                    Divider()
-                                        .background(StepINColor.divider)
-                                        .padding(.vertical, StepINSpacing.sm)
-                                }
->>>>>>> Stashed changes
                             }
                         }
                     }
@@ -435,7 +356,6 @@ struct HomeView: View {
             }
         }
     }
-<<<<<<< Updated upstream
 }
 
 // MARK: - HomeGreetingHeader
@@ -443,61 +363,36 @@ struct HomeView: View {
 private struct HomeGreetingHeader: View {
     let firstName: String
     let initials: String
+    let profileImage: UIImage?
+    let profileAction: () -> Void
 
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
-            ProfileAvatarView(initials: initials)
+            Button {
+                profileAction()
+            } label: {
+                StepINProfileAvatar(image: profileImage, initials: initials)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Profile")
+            .tutorialTarget(.profile)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("Good morning,")
-                    .font(.system(.subheadline, design: .default, weight: .medium))
+                    .font(.system(.subheadline, design: .rounded, weight: .medium))
                     .foregroundStyle(StepINColor.primary)
                     .lineLimit(1)
 
                 Text(firstName)
-                    .font(.system(.title2, design: .default, weight: .bold))
+                    .font(.system(size: 17, weight: .semibold, design: .rounded, ))
                     .foregroundStyle(StepINColor.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
-
-                Text("Ready to build your confidence today?")
-                    .font(.system(.footnote, design: .default, weight: .regular))
-                    .foregroundStyle(StepINColor.textSecondary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer(minLength: 0)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Good morning, \(firstName). Ready to build your confidence today?")
-    }
-}
-
-// MARK: - ProfileAvatarView
-
-private struct ProfileAvatarView: View {
-    let initials: String
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(StepINColor.primarySoft)
-
-            Text(initials)
-                .font(.system(.headline, design: .default, weight: .semibold))
-                .foregroundStyle(StepINColor.primary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .padding(8)
-        }
-        .frame(width: 58, height: 58)
-        .overlay(
-            Circle()
-                .strokeBorder(Color.white.opacity(0.92), lineWidth: 1)
-        )
-        .shadow(color: StepINColor.shadow.opacity(0.45), radius: 7, x: 0, y: 3)
-        .accessibilityHidden(true)
     }
 }
 
@@ -517,15 +412,15 @@ private struct HomeInterviewHeroCard: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var robotColumnWidth: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? 128 : 140
+        dynamicTypeSize.isAccessibilitySize ? 170 : 170
     }
 
     private var robotSize: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? 124 : 140
+        dynamicTypeSize.isAccessibilitySize ? 230 : 230
     }
 
     private var robotVisualHeight: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? 136 : 150
+        dynamicTypeSize.isAccessibilitySize ? 190 : 190
     }
 
     var body: some View {
@@ -534,7 +429,7 @@ private struct HomeInterviewHeroCard: View {
             robertColumn
         }
         .frame(maxWidth: .infinity)
-        .frame(minHeight: dynamicTypeSize.isAccessibilitySize ? 220 : 178)
+        .frame(minHeight: dynamicTypeSize.isAccessibilitySize ? 250 : 210)
         .background(cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: StepINRadius.hero, style: .continuous))
         .stepINShadow(.card)
@@ -543,14 +438,14 @@ private struct HomeInterviewHeroCard: View {
     private var leftColumn: some View {
         VStack(alignment: .leading, spacing: StepINSpacing.sm) {
             Text("Ready for your next interview?")
-                .font(.system(.title3, design: .default, weight: .bold))
-                .foregroundColor(StepINColor.onPrimary)
+                .font(.system(.title3, design: .rounded, weight: .bold))
+                .foregroundColor(Color(hex: 0x393939))
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
 
             Text("Practice with an AI interviewer tailored to your role.")
-                .font(.system(.subheadline, design: .default, weight: .regular))
-                .foregroundColor(StepINColor.onPrimary.opacity(0.86))
+                .font(.system(.subheadline, design: .rounded, weight: .regular))
+                .foregroundColor(Color(hex: 0x393939).opacity(0.99))
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -570,9 +465,9 @@ private struct HomeInterviewHeroCard: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.84)
                 .frame(maxWidth: .infinity)
-                .frame(minHeight: 44)
+                .frame(minHeight: 50)
                 .padding(.horizontal, StepINSpacing.sm)
-                .background(StepINColor.onPrimary)
+                .background(StepINColor.primarySoft)
                 .clipShape(
                     RoundedRectangle(cornerRadius: StepINRadius.medium, style: .continuous)
                 )
@@ -582,13 +477,14 @@ private struct HomeInterviewHeroCard: View {
         .padding(.top, StepINSpacing.xs)
         .frame(maxWidth: 178)
         .accessibilityLabel("Start Interview")
+        .tutorialTarget(.startInterview)
     }
 
     private var robertColumn: some View {
         ZStack(alignment: .bottomTrailing) {
             StepINGradient.robotGlow
-                .frame(width: 132, height: 132)
-                .opacity(0.26)
+                .frame(width: 230, height: 230)
+                .opacity(0.1)
 
             Circle()
                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
@@ -601,7 +497,7 @@ private struct HomeInterviewHeroCard: View {
             robertView
         }
         .frame(width: robotColumnWidth)
-        .frame(minHeight: 148)
+        .frame(minHeight: 190)
         .padding(.trailing, StepINSpacing.xs)
         .contentShape(Rectangle())
         .onTapGesture(perform: robotTapAction)
@@ -626,11 +522,81 @@ private struct HomeInterviewHeroCard: View {
     }
 
     private var cardBackground: some View {
-        StepINGradient.hero
-            .overlay(
-                RoundedRectangle(cornerRadius: StepINRadius.hero, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
+        RoundedRectangle(
+            cornerRadius: StepINRadius.hero,
+            style: .continuous
+        )
+        .fill(.ultraThickMaterial)
+        .overlay {
+            ZStack {
+                Color(hex: 0x8D68F6)
+                    .opacity(0.45)
+
+                Circle()
+                    .fill(Color(hex: 0xC084FC))
+                    .frame(width: 240, height: 240)
+                    .blur(radius: 90)
+                    .offset(x: -120, y: -100)
+
+                Circle()
+                    .fill(Color(hex: 0x7DD3FC))
+                    .frame(width: 220, height: 220)
+                    .blur(radius: 90)
+                    .offset(x: 130, y: -80)
+
+                Circle()
+                    .fill(Color(hex: 0xF39AC7))
+                    .frame(width: 220, height: 220)
+                    .blur(radius: 100)
+                    .offset(x: 140, y: 120)
+
+                Circle()
+                    .fill(Color(hex: 0xFDBA74))
+                    .frame(width: 220, height: 220)
+                    .blur(radius: 110)
+                    .offset(x: -120, y: 120)
+            }
+            .clipShape(
+                RoundedRectangle(
+                    cornerRadius: StepINRadius.hero,
+                    style: .continuous
+                )
             )
+        }
+        .overlay {
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.28),
+                    Color.white.opacity(0.05),
+                    .clear
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .clipShape(
+                RoundedRectangle(
+                    cornerRadius: StepINRadius.hero,
+                    style: .continuous
+                )
+            )
+        }
+        .overlay {
+            RoundedRectangle(
+                cornerRadius: StepINRadius.hero,
+                style: .continuous
+            )
+            .strokeBorder(
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(0.45),
+                        Color.white.opacity(0.12)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                lineWidth: 1
+            )
+        }
     }
 }
 
@@ -638,16 +604,21 @@ private struct HomeInterviewHeroCard: View {
 
 private struct HomeGoalRow: View {
     let goal: AssignedGoal
+    let onToggle: () -> Void
 
     var body: some View {
         HStack(spacing: StepINSpacing.sm) {
-            Image(systemName: goal.status == .completed
-                  ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 22))
-                .foregroundColor(
-                    goal.status == .completed
-                        ? StepINColor.success : StepINColor.textTertiary
-                )
+            Button(action: onToggle) {
+                Image(systemName: goal.status == .completed
+                      ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 22))
+                    .foregroundColor(
+                        goal.status == .completed
+                            ? StepINColor.success : StepINColor.textTertiary
+                    )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(goal.status == .completed ? "Mark goal as to do" : "Mark goal as completed")
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(goal.title)
@@ -657,35 +628,11 @@ private struct HomeGoalRow: View {
                 Text(goal.homeSourceLabel)
                     .font(StepINFont.caption)
                     .foregroundColor(StepINColor.textTertiary)
-=======
-    
-    /// Compact goal row for the Home dashboard.
-    private struct HomeGoalRow: View {
-        let goal: AssignedGoal
-        
-        var body: some View {
-            HStack(spacing: StepINSpacing.sm) {
-                Image(systemName: goal.status == .completed ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 22))
-                    .foregroundColor(goal.status == .completed ? StepINColor.success : StepINColor.textTertiary)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(goal.title)
-                        .font(StepINFont.body2)
-                        .foregroundColor(StepINColor.textPrimary)
-                        .lineLimit(2)
-                    Text(goal.homeSourceLabel)
-                        .font(StepINFont.caption)
-                        .foregroundColor(StepINColor.textTertiary)
-                }
-                
-                Spacer(minLength: 0)
->>>>>>> Stashed changes
             }
-            .accessibilityElement(children: .combine)
+
+            Spacer(minLength: 0)
         }
     }
-<<<<<<< Updated upstream
 }
 
 private extension AssignedGoal {
@@ -699,25 +646,3 @@ private extension AssignedGoal {
         .environment(AppState(hasProfile: true))
         .modelContainer(PreviewData.container)
 }
-=======
-    
-    private extension AssignedGoal {
-        /// "From UX Design Interview" format used on the Home dashboard.
-        var homeSourceLabel: String {
-            "From \(sourceJobTitle) Interview"
-        }
-    }
-    
-    #Preview("With data") {
-        HomeView()
-            .environment(AppState(hasProfile: true))
-            .modelContainer(PreviewData.container)
-    }
-    
-    #Preview("Empty") {
-        HomeView()
-            .environment(AppState(hasProfile: true))
-            .modelContainer(PreviewData.emptyContainer)
-    }
-
->>>>>>> Stashed changes

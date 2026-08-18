@@ -16,7 +16,8 @@ final class MockAnalysisService: InterviewAnalysisServiceProtocol {
         configuration: InterviewConfiguration,
         transcript: [TranscriptEntry],
         isPartial: Bool,
-        completedQuestionCount: Int
+        completedQuestionCount: Int,
+        deliveryMetrics: VoiceDeliveryMetrics
     ) async throws -> AnalysisResult {
         // Simulate model latency.
         try? await Task.sleep(for: .seconds(1.2))
@@ -44,29 +45,29 @@ final class MockAnalysisService: InterviewAnalysisServiceProtocol {
         let role = configuration.jobTitle
 
         var strengths = [
-            "You supported your answers with concrete examples from your projects.",
-            "You stayed calm and composed throughout the interview.",
-            "You showed genuine motivation for the \(role) role."
+            "Supported answers with concrete project examples.",
+            "Maintained a composed delivery across answers.",
+            "Connected motivation clearly to the \(role) role."
         ]
         if configuration.company != nil {
-            strengths.append("You connected your interests to the company convincingly.")
+            strengths.append("Linked role interest to the company context.")
         }
 
         var areas = [
-            "Try making your answers more concise while keeping the important details.",
-            "Practice structuring behavioral answers around the situation, your actions, and the result.",
-            "Practice speaking with fewer pauses to keep your delivery consistent."
+            "Make answers more concise while preserving key details.",
+            "Structure behavioral examples with clearer action and result.",
+            "Use steadier pacing during complex answers."
         ]
         if isPartial {
-            areas.append("Complete a full-length interview to build stamina for longer sessions.")
+            areas.append("Complete full sessions to show consistent participation.")
         }
 
         let goalPool = [
-            "Practice answering behavioral questions using specific examples.",
-            "Practice concise introductions.",
-            "Reduce filler words during interviews.",
-            "Prepare stronger examples for teamwork questions.",
-            "Improve confidence when discussing technical projects."
+            "Lead answers with the main point",
+            "Quantify impact in project examples",
+            "Explain technical trade-offs more clearly",
+            "Clarify your role in team examples",
+            "Use steadier pacing for complex topics"
         ]
         let goals = Array(goalPool.shuffled().prefix(Int.random(in: 2...3)))
 
@@ -81,8 +82,8 @@ final class MockAnalysisService: InterviewAnalysisServiceProtocol {
             confidenceScore: confidence,
             communicationScore: communication,
             interviewSkillsScore: interviewSkills,
-            strengths: Array(strengths.prefix(5)),
-            areasToImprove: Array(areas.prefix(5)),
+            strengths: Array(strengths.prefix(4)),
+            areasToImprove: Array(areas.prefix(4)),
             assignedGoals: goals,
             summary: summary
         )

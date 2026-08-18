@@ -17,18 +17,18 @@ struct SplashView: View {
 
     var body: some View {
         ZStack {
-            StepINGradient.hero.ignoresSafeArea()
+            StepINScreenBackground()
 
             VStack(spacing: StepINSpacing.xl) {
                 RobotView(state: .idle, presentation: .homeHero)
 
                 VStack(spacing: StepINSpacing.xs) {
                     Text("StepIN")
-                        .font(.system(size: 40, weight: .bold))
-                        .foregroundColor(.white)
+                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .foregroundColor(StepINColor.textPrimary)
                     Text("Step into your next opportunity.")
                         .font(StepINFont.body1)
-                        .foregroundColor(.white.opacity(0.9))
+                        .foregroundColor(StepINColor.textSecondary)
                 }
                 .opacity(logoVisible ? 1 : 0)
                 .animation(reduceMotion ? nil : .easeIn(duration: StepINMotion.slow), value: logoVisible)

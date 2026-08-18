@@ -18,6 +18,7 @@ final class UserProfile {
     var firstName: String
     var lastName: String?
     var email: String?
+    var profileImageLocalPath: String?
     var profileCVFileName: String?
     var profileCVLocalPath: String?
     var profileCVExtractedText: String?
@@ -29,6 +30,7 @@ final class UserProfile {
         firstName: String,
         lastName: String? = nil,
         email: String? = nil,
+        profileImageLocalPath: String? = nil,
         profileCVFileName: String? = nil,
         profileCVLocalPath: String? = nil,
         profileCVExtractedText: String? = nil,
@@ -39,6 +41,7 @@ final class UserProfile {
         self.firstName = firstName
         self.lastName = lastName
         self.email = email
+        self.profileImageLocalPath = profileImageLocalPath
         self.profileCVFileName = profileCVFileName
         self.profileCVLocalPath = profileCVLocalPath
         self.profileCVExtractedText = profileCVExtractedText
@@ -272,11 +275,7 @@ final class AssignedGoal {
     /// everywhere a goal shows where it came from — keep the format
     /// consistent across Home and My Goals.
     var sourceLabel: String {
-        if sourceJobTitle.localizedCaseInsensitiveContains("interview") {
-            "From \(sourceJobTitle)"
-        } else {
-            "From \(sourceJobTitle) Interview"
-        }
+        "From \(sourceInterviewTitle)"
     }
 }
 

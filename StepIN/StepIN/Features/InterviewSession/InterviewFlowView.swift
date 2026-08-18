@@ -18,8 +18,8 @@ struct InterviewFlowView: View {
 
     private enum Stage {
         case setup(prefill: InterviewConfiguration?)
-        case preparing(InterviewConfiguration)
-        case session(InterviewConfiguration)
+        case preparing(InterviewConfiguration, InterviewSessionViewModel)
+        case session(InterviewConfiguration, InterviewSessionViewModel?)
         case analyzing
         case results(InterviewRecord, [AssignedGoal])
         case analysisFailed(InterviewRecord)
@@ -35,29 +35,27 @@ struct InterviewFlowView: View {
                 InterviewSetupView(
                     prefill: prefill,
                     onGenerate: { config in
-                        withAnimation(StepINMotion.fade) { stage = .preparing(config) }
+                        #if DEBUG
+                        print("[InterviewStartup] T0 Start Interview tapped")
+                        #endif
+                        let viewModel = makeSessionViewModel(for: config)
+                        withAnimation(StepINMotion.fade) { stage = .preparing(config, viewModel) }
                     },
                     onCancel: onDismiss
                 )
 
-            case .preparing(let config):
-                AIPreparationView(configuration: config) {
+            case .preparing(let config, let viewModel):
+                AIPreparationView(configuration: config, startupViewModel: viewModel) {
                     sessionStartDate = .now
-                    withAnimation(StepINMotion.fade) { stage = .session(config) }
+                    withAnimation(StepINMotion.fade) { stage = .session(config, viewModel) }
                 }
 
-            case .session(let config):
-                InterviewSessionView(configuration: config) { transcript, isPartial, completedCount in
-                    withAnimation(StepINMotion.fade) { stage = .analyzing }
-                    Task {
-                        await analyzeAndSave(
-                            config: config,
-                            transcript: transcript,
-                            isPartial: isPartial,
-                            completedCount: completedCount
-                        )
-                    }
-                }
+            case .session(let config, let viewModel):
+                InterviewSessionView(
+                    configuration: config,
+                    viewModel: viewModel,
+                    onFinished: finishHandler(for: config)
+                )
 
             case .analyzing:
                 AnalyzingView()
@@ -87,13 +85,35 @@ struct InterviewFlowView: View {
                     .navigationBarTitleDisplayMode(.inline)
                 }
 
-            case .analysisFailed(let interview):
+            case .analysisFailed:
                 AnalysisFailedView(onDismiss: onDismiss)
             }
         }
     }
 
     // MARK: Persistence
+
+    private func makeSessionViewModel(for config: InterviewConfiguration) -> InterviewSessionViewModel {
+        InterviewSessionViewModel(
+            configuration: config,
+            onFinished: finishHandler(for: config)
+        )
+    }
+
+    private func finishHandler(for config: InterviewConfiguration) -> (_ transcript: [TranscriptEntry], _ isPartial: Bool, _ completedCount: Int, _ metrics: VoiceDeliveryMetrics) -> Void {
+        { transcript, isPartial, completedCount, metrics in
+            withAnimation(StepINMotion.fade) { stage = .analyzing }
+            Task {
+                await analyzeAndSave(
+                    config: config,
+                    transcript: transcript,
+                    isPartial: isPartial,
+                    completedCount: completedCount,
+                    metrics: metrics
+                )
+            }
+        }
+    }
 
     /// Saves the interview record first (transcript is never lost), then
     /// generates analysis + goals. Analysis failure keeps the record and
@@ -103,9 +123,13 @@ struct InterviewFlowView: View {
         config: InterviewConfiguration,
         transcript: [TranscriptEntry],
         isPartial: Bool,
-        completedCount: Int
+        completedCount: Int,
+        metrics: VoiceDeliveryMetrics
     ) async {
-        let analyzingShownAt = Date.now
+        #if DEBUG
+        let analysisT0 = Date.now
+        print("[StepIN.AnalysisTiming] T0 analysis begins")
+        #endif
 
         // 1. Save the interview + transcript immediately.
         let interview = InterviewRecord(
@@ -133,22 +157,63 @@ struct InterviewFlowView: View {
         }
         try? context.save()
 
-        // 2. Generate the analysis (retry once per spec).
-        let service = MockAnalysisService()
+        #if DEBUG
+        print("[StepIN.AnalysisTiming] T1 initial transcript persistence completed: \(Date.now.timeIntervalSince(analysisT0))s")
+        #endif
+
+        // Evidence-sufficiency gate: CV content is interview context, not performance
+        // evidence. If the candidate produced no meaningful answers (< 10 total words),
+        // skip analysis entirely so the CV cannot generate a fabricated score.
+        let candidateWordCount = transcript
+            .filter { $0.speaker == .candidate }
+            .reduce(0) { $0 + $1.text.split(separator: " ").count }
+        guard candidateWordCount >= 10 else {
+            interview.status = .completed
+            try? context.save()
+            #if DEBUG
+            print("[StepIN.AnalysisTiming] T6 persistence completed: \(Date.now.timeIntervalSince(analysisT0))s")
+            #endif
+            withAnimation(StepINMotion.fade) { stage = .results(interview, []) }
+            #if DEBUG
+            print("[StepIN.AnalysisTiming] T7 Results shown: \(Date.now.timeIntervalSince(analysisT0))s")
+            #endif
+            return
+        }
+
+        // 2. Generate the analysis. Retry once only for transient failures.
+        let service: InterviewAnalysisServiceProtocol = if let apiKey = OpenAIConfiguration.apiKey {
+            OpenAIAnalysisService(apiKey: apiKey)
+        } else {
+            MockAnalysisService()
+        }
         var result: AnalysisResult?
-        for _ in 0..<2 {
-            result = try? await service.analyze(
-                configuration: config,
-                transcript: transcript,
-                isPartial: isPartial,
-                completedQuestionCount: completedCount
-            )
-            if result != nil { break }
+        var lastAnalysisError: Error?
+        for attempt in 0..<2 {
+            do {
+                result = try await service.analyze(
+                    configuration: config,
+                    transcript: transcript,
+                    isPartial: isPartial,
+                    completedQuestionCount: completedCount,
+                    deliveryMetrics: metrics
+                )
+                break
+            } catch {
+                lastAnalysisError = error
+                #if DEBUG
+                print("[StepIN.AnalysisTiming] analysis attempt \(attempt + 1) failed retryable=\(Self.isRetryableAnalysisError(error)): \(error)")
+                #endif
+                guard attempt == 0, Self.isRetryableAnalysisError(error) else { break }
+            }
         }
 
         guard let result else {
             interview.status = .failed
             try? context.save()
+            #if DEBUG
+            print("[StepIN.AnalysisTiming] analysis failed: \(String(describing: lastAnalysisError))")
+            print("[StepIN.AnalysisTiming] T6 persistence completed: \(Date.now.timeIntervalSince(analysisT0))s")
+            #endif
             withAnimation(StepINMotion.fade) { stage = .analysisFailed(interview) }
             return
         }
@@ -183,13 +248,32 @@ struct InterviewFlowView: View {
         }
         try? context.save()
 
-        // Keep the analyzing moment ~4.5s minimum so the checklist reads naturally.
-        let elapsed = Date.now.timeIntervalSince(analyzingShownAt)
-        if elapsed < 4.5 {
-            try? await Task.sleep(for: .seconds(4.5 - elapsed))
-        }
+        #if DEBUG
+        print("[StepIN.AnalysisTiming] T6 persistence completed: \(Date.now.timeIntervalSince(analysisT0))s")
+        #endif
 
         withAnimation(StepINMotion.fade) { stage = .results(interview, goals) }
+
+        #if DEBUG
+        print("[StepIN.AnalysisTiming] T7 Results shown: \(Date.now.timeIntervalSince(analysisT0))s")
+        #endif
+    }
+
+    private static func isRetryableAnalysisError(_ error: Error) -> Bool {
+        if let requestError = error as? AnalysisRequestError {
+            return requestError.isRetryable
+        }
+        if let urlError = error as? URLError {
+            return [
+                .timedOut,
+                .cannotFindHost,
+                .cannotConnectToHost,
+                .networkConnectionLost,
+                .notConnectedToInternet,
+                .dnsLookupFailed
+            ].contains(urlError.code)
+        }
+        return false
     }
 
 }

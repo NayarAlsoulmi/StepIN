@@ -6,9 +6,16 @@
 //  Strengths → Areas to Improve → Assigned Goals → Practice Again →
 //  Return Home. The interview is already saved before this screen appears.
 //
+//  Robert is placed ABOVE the ScrollView (not inside it) to keep the
+//  TimelineView nesting depth shallow. Placing TimelineView inside a
+//  ScrollView inside a NavigationStack inside an outer ZStack causes a
+//  SwiftUI layout-graph stack overflow on iOS 26.
+//
 
 import SwiftUI
 import SwiftData
+
+private let isXcodePreview = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
 
 struct ResultsView: View {
     let interview: InterviewRecord
@@ -22,72 +29,77 @@ struct ResultsView: View {
     @State private var resultRobertOneShot: RobertAnimationState? = nil
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: StepINSpacing.xl) {
-                RobotView(
-                    state: resultRobertBaseState,
-                    robertState: resultRobertOneShot,
-                    presentation: .interview
-                )
-                .padding(.top, StepINSpacing.md)
+        VStack(spacing: 0) {
+            // Robert lives outside the ScrollView to avoid TimelineView being
+            // nested inside ScrollView → NavigationStack → ZStack (crash depth).
+            RobotView(
+                state: resultRobertBaseState,
+                robertState: resultRobertOneShot,
+                presentation: .compact
+            )
+            .padding(.top, StepINSpacing.md)
+            .padding(.bottom, StepINSpacing.xs)
 
-                overallScore
+            ScrollView {
+                VStack(spacing: StepINSpacing.xl) {
+                    overallScore
 
-                if let analysis = interview.analysis {
-                    VStack(alignment: .leading, spacing: StepINSpacing.sm) {
-                        StepINSectionHeader(title: "Performance")
-                        StepINCard {
-                            VStack(spacing: StepINSpacing.md) {
-                                ForEach(analysis.categoryScores, id: \.category) { item in
-                                    PerformanceMetricRow(category: item.category, score: item.score)
-                                }
-                            }
-                        }
-                    }
-
-                    FeedbackListSection(
-                        title: "Strengths",
-                        items: analysis.strengths,
-                        icon: "checkmark.circle.fill",
-                        iconColor: StepINColor.success
-                    )
-
-                    FeedbackListSection(
-                        title: "Areas to Improve",
-                        items: analysis.areasToImprove,
-                        icon: "arrow.up.forward.circle.fill",
-                        iconColor: StepINColor.primary
-                    )
-                }
-
-                if !goals.isEmpty {
-                    VStack(alignment: .leading, spacing: StepINSpacing.sm) {
-                        StepINSectionHeader(title: "Assigned Goals")
-                        ForEach(goals) { goal in
+                    if let analysis = interview.analysis {
+                        VStack(alignment: .leading, spacing: StepINSpacing.sm) {
+                            StepINSectionHeader(title: "Performance")
                             StepINCard {
-                                HStack(spacing: StepINSpacing.sm) {
-                                    Image(systemName: "target")
-                                        .foregroundColor(StepINColor.primary)
-                                    Text(goal.title)
-                                        .font(StepINFont.body2)
-                                        .foregroundColor(StepINColor.textPrimary)
+                                VStack(spacing: StepINSpacing.md) {
+                                    ForEach(analysis.categoryScores, id: \.category) { item in
+                                        PerformanceMetricRow(category: item.category, score: item.score)
+                                    }
+                                }
+                            }
+                        }
+
+                        FeedbackListSection(
+                            title: "Strengths",
+                            items: analysis.strengths,
+                            icon: "checkmark.circle.fill",
+                            iconColor: StepINColor.success
+                        )
+
+                        FeedbackListSection(
+                            title: "Areas to Improve",
+                            items: analysis.areasToImprove,
+                            icon: "arrow.up.forward.circle.fill",
+                            iconColor: StepINColor.primary
+                        )
+                    }
+
+                    if !goals.isEmpty {
+                        VStack(alignment: .leading, spacing: StepINSpacing.sm) {
+                            StepINSectionHeader(title: "Assigned Goals")
+                            ForEach(goals) { goal in
+                                StepINCard {
+                                    HStack(spacing: StepINSpacing.sm) {
+                                        Image(systemName: "target")
+                                            .foregroundColor(StepINColor.primary)
+                                        Text(goal.title)
+                                            .font(StepINFont.body2)
+                                            .foregroundColor(StepINColor.textPrimary)
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                VStack(spacing: StepINSpacing.sm) {
-                    StepINPrimaryButton(title: "Practice Again", action: onPracticeAgain)
-                    StepINSecondaryButton(title: "Return Home", action: onReturnHome)
+                    VStack(spacing: StepINSpacing.sm) {
+                        StepINPrimaryButton(title: "Practice Again", action: onPracticeAgain)
+                        StepINSecondaryButton(title: "Return Home", action: onReturnHome)
+                    }
+                    .padding(.top, StepINSpacing.xs)
                 }
-                .padding(.top, StepINSpacing.xs)
+                .padding(StepINSpacing.screenH)
+                .padding(.bottom, StepINSpacing.xxl)
             }
-            .padding(StepINSpacing.screenH)
-            .padding(.bottom, StepINSpacing.xxl)
         }
-        .background(StepINColor.background)
-        .task { await runGoodbyeSequence() }
+        .background(StepINScreenBackground())
+        .task { guard !isXcodePreview else { return }; await runGoodbyeSequence() }
     }
 
     private var overallScore: some View {
@@ -102,32 +114,51 @@ struct ResultsView: View {
                     .clipShape(Capsule())
             }
 
-            ZStack {
-                Circle()
-                    .stroke(StepINColor.primarySoft, lineWidth: 12)
-                Circle()
-                    .trim(from: 0, to: ringProgress)
-                    .stroke(StepINColor.primary, style: StrokeStyle(lineWidth: 12, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                VStack(spacing: 2) {
-                    Text("\(interview.overallScore ?? 0)")
-                        .font(.system(size: 44, weight: .bold))
+            if let score = interview.overallScore {
+                ZStack {
+                    Circle()
+                        .stroke(StepINColor.primarySoft, lineWidth: 12)
+                    Circle()
+                        .trim(from: 0, to: ringProgress)
+                        .stroke(StepINColor.primary, style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                    VStack(spacing: 2) {
+                        Text("\(score)")
+                            .font(.system(size: 44, weight: .bold, design: .rounded))
+                            .foregroundColor(StepINColor.textPrimary)
+                        Text("/ 100")
+                            .font(StepINFont.body3)
+                            .foregroundColor(StepINColor.textSecondary)
+                    }
+                }
+                .frame(width: 150, height: 150)
+                .accessibilityElement()
+                .accessibilityLabel("Overall score \(score) out of 100")
+                .onAppear {
+                    let target = CGFloat(score) / 100
+                    if reduceMotion {
+                        ringProgress = target
+                    } else {
+                        withAnimation(.easeOut(duration: 0.9)) { ringProgress = target }
+                    }
+                }
+            } else {
+                VStack(spacing: StepINSpacing.sm) {
+                    Image(systemName: "minus.circle")
+                        .font(.system(size: 48))
+                        .foregroundColor(StepINColor.textTertiary)
+                    Text("Not Evaluated")
+                        .font(StepINFont.h3)
                         .foregroundColor(StepINColor.textPrimary)
-                    Text("/ 100")
-                        .font(StepINFont.body3)
+                    Text("No meaningful interview performance was recorded.")
+                        .font(StepINFont.bodyRegular)
                         .foregroundColor(StepINColor.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, StepINSpacing.md)
                 }
-            }
-            .frame(width: 150, height: 150)
-            .accessibilityElement()
-            .accessibilityLabel("Overall score \(interview.overallScore ?? 0) out of 100")
-            .onAppear {
-                let target = CGFloat(interview.overallScore ?? 0) / 100
-                if reduceMotion {
-                    ringProgress = target
-                } else {
-                    withAnimation(.easeOut(duration: 0.9)) { ringProgress = target }
-                }
+                .frame(minHeight: 150)
+                .accessibilityElement()
+                .accessibilityLabel("Not evaluated — no meaningful interview performance was recorded")
             }
         }
         .padding(.top, StepINSpacing.lg)
@@ -139,11 +170,10 @@ struct ResultsView: View {
         let score = interview.overallScore ?? 0
         let cache = RobertFrameCache.shared
 
-        // Determine performance reaction (one-shot).
         let reaction: RobertAnimationState?
-        if score >= 90 { reaction = .success }      // 10 frames @ 15 fps ≈ 0.67 s
-        else if score >= 60 { reaction = .thumbsUp } // supportive regardless of band
-        else { reaction = nil }                       // calm idle for low scores
+        if score >= 90 { reaction = .success }
+        else if score >= 60 { reaction = .thumbsUp }
+        else { reaction = nil }
 
         if let reaction {
             resultRobertOneShot = reaction
@@ -154,11 +184,9 @@ struct ResultsView: View {
             resultRobertOneShot = nil
         }
 
-        // Brief pause before goodbye wave.
         try? await Task.sleep(for: .seconds(0.5))
         guard !Task.isCancelled else { return }
 
-        // Wave goodbye, then settle to idle.
         resultRobertOneShot = .wave
         let waveAnim = cache.animation(for: .wave)
         let waveDur = waveAnim.map { Double($0.frameCount) / Double($0.fps) } ?? 0.8

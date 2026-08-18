@@ -11,3 +11,7 @@ DerivedData/
 *.ipa
 *.dSYM.zip
 *.dSYM
+
+# Local development secrets
+Secrets.xcconfig
+LocalSecrets.xcconfig

@@ -8,92 +8,129 @@
 
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct ProfileView: View {
+    var embedsInNavigationStack = true
+
+    @Environment(AppState.self) private var appState
     @Query private var profiles: [UserProfile]
 
     @State private var showEditProfile = false
+    @State private var showSignOutConfirmation = false
 
     private var profile: UserProfile? { profiles.first }
+    private var profileImage: UIImage? {
+        ProfileImageService.image(atLocalPath: profile?.profileImageLocalPath)
+    }
 
+    @ViewBuilder
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: StepINSpacing.section) {
-                    header
-                    detailsCard
-                }
-                .padding(StepINSpacing.screenH)
-                .padding(.bottom, StepINSpacing.xxl)
+        if embedsInNavigationStack {
+            NavigationStack {
+                profileContent
             }
-            .background(StepINColor.background)
-            .navigationTitle("Profile")
-            .toolbar {
-                if profile != nil {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button("Edit") { showEditProfile = true }
-                            .fontWeight(.semibold)
-                    }
-                }
+        } else {
+            profileContent
+        }
+    }
+
+    private var profileContent: some View {
+        ScrollView {
+            VStack(spacing: StepINSpacing.xl) {
+                profileTopBar
+                header
+                profileFields
+                signOutButton
             }
-            .sheet(isPresented: $showEditProfile) {
-                if let profile {
-                    EditProfileView(profile: profile)
-                }
+            .padding(.horizontal, StepINSpacing.screenH)
+            .padding(.top, StepINSpacing.md)
+            .padding(.bottom, StepINSpacing.giant)
+        }
+        .background(StepINScreenBackground())
+        .toolbar(embedsInNavigationStack ? .hidden : .visible, for: .navigationBar)
+        .sheet(isPresented: $showEditProfile) {
+            if let profile {
+                EditProfileView(profile: profile)
+            }
+        }
+        .alert("Sign out?", isPresented: $showSignOutConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Sign Out", role: .destructive) {
+                appState.signOut()
+            }
+        } message: {
+            Text("Your interviews, goals, analyses, and profile stay on this device.")
+        }
+    }
+
+    private var profileTopBar: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("Profile")
+                .font(.system(size: 34, weight: .bold, design: .rounded))
+                .foregroundColor(StepINColor.textPrimary)
+
+            Spacer()
+
+            if profile != nil {
+                Button("Edit") { showEditProfile = true }
+                    .font(StepINFont.body2)
+                    .foregroundStyle(StepINColor.primary)
             }
         }
     }
 
     private var header: some View {
         VStack(spacing: StepINSpacing.sm) {
-            ZStack {
-                Circle()
-                    .fill(StepINColor.primarySoft)
-                    .frame(width: 96, height: 96)
-                Text(initials)
-                    .font(StepINFont.h1)
-                    .foregroundColor(StepINColor.primary)
-            }
-            Text(fullName)
+            StepINProfileAvatar(
+                image: profileImage,
+                initials: initials,
+                size: 102,
+                initialsFont: StepINFont.h1
+            )
+
+            Text(displayFirstName)
                 .font(StepINFont.h3)
                 .foregroundColor(StepINColor.textPrimary)
-            if let email = profile?.email {
-                Text(email)
-                    .font(StepINFont.body3)
-                    .foregroundColor(StepINColor.textSecondary)
-            }
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, StepINSpacing.md)
     }
 
-    private var detailsCard: some View {
-        StepINCard {
-            VStack(spacing: StepINSpacing.md) {
-                detailRow("First Name", profile?.firstName ?? "—")
+    private var profileFields: some View {
+        StepINCard(padding: StepINSpacing.md) {
+            VStack(spacing: StepINSpacing.sm) {
+                profileRow(label: "First Name", value: profile?.firstName)
                 Divider().background(StepINColor.divider)
-                detailRow("Last Name", profile?.lastName ?? "—")
+                profileRow(label: "Last Name", value: profile?.lastName)
                 Divider().background(StepINColor.divider)
-                detailRow("Email", profile?.email ?? "—")
+                profileRow(label: "Email", value: profile?.email)
             }
         }
     }
 
-    private func detailRow(_ label: String, _ value: String) -> some View {
-        HStack {
+    private var signOutButton: some View {
+        StepINDestructiveButton(title: "Sign Out") {
+            showSignOutConfirmation = true
+        }
+    }
+
+    private func profileRow(label: String, value: String?) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: StepINSpacing.md) {
             Text(label)
                 .font(StepINFont.body3)
                 .foregroundColor(StepINColor.textSecondary)
-            Spacer()
-            Text(value)
+            Spacer(minLength: StepINSpacing.md)
+            Text(value?.nilIfBlank ?? "—")
                 .font(StepINFont.body2)
                 .foregroundColor(StepINColor.textPrimary)
+                .multilineTextAlignment(.trailing)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(.vertical, StepINSpacing.xxs)
     }
 
-    private var fullName: String {
-        guard let profile else { return "Your Profile" }
-        return [profile.firstName, profile.lastName].compactMap { $0 }.joined(separator: " ")
+    private var displayFirstName: String {
+        profile?.firstName.nilIfBlank ?? "Your Profile"
     }
 
     private var initials: String {
@@ -104,7 +141,15 @@ struct ProfileView: View {
     }
 }
 
+private extension String {
+    var nilIfBlank: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
 #Preview {
     ProfileView()
+        .environment(AppState(hasProfile: true, hasCompletedOnboarding: true, isAuthenticated: true))
         .modelContainer(PreviewData.container)
 }
