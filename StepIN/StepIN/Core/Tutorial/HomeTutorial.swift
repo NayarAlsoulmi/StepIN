@@ -4,7 +4,7 @@ enum HomeTutorial {
             id: .profile,
             order: 0,
             title: "Your profile",
-            description: "Update your profile details here so StepIN can personalize your practice experience.",
+            description: "Update your profile details here, so StepIN can personalize your practice experience.",
             bubblePosition: .below
         ),
         TutorialStep(
